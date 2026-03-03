@@ -1,11 +1,11 @@
 module github.com/IanShaw027/sub2api-plugin-market
 
-go 1.25.7
+go 1.25
 
 require (
 	entgo.io/ent v0.14.5
-	github.com/IanShaw027/sub2api-pluginsign v0.1.0
-	github.com/IanShaw027/sub2api-storage v0.1.0
+	github.com/IanShaw027/sub2api-pluginsign v0.1.2
+	github.com/IanShaw027/sub2api-storage v0.1.2
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.11.2
@@ -68,12 +68,4 @@ require (
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
-
-replace (
-	github.com/IanShaw027/sub2api-pluginsign => /Users/ianshaw/Documents/fork/sub2api-pluginsign
-	github.com/IanShaw027/sub2api-pluginsign v0.1.1 => /Users/ianshaw/Documents/fork/sub2api-pluginsign
-	github.com/IanShaw027/sub2api-storage => /Users/ianshaw/Documents/fork/sub2api-storage
-	github.com/IanShaw027/sub2api-storage v0.1.1 => /Users/ianshaw/Documents/fork/sub2api-storage
-	github.com/sub2api/plugin-market => .
 )

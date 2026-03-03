@@ -1,10 +1,12 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
 
+	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -159,6 +161,30 @@ func TestGetPluginDetail_NotFound(t *testing.T) {
 	assert.NotEqual(t, float64(0), response["code"])
 }
 
+// TestGetPluginDetail_Suspended 测试下架插件不可见
+func TestGetPluginDetail_Suspended(t *testing.T) {
+	tc := SetupTestContext(t)
+	defer tc.Cleanup()
+
+	_, err := tc.Client.Plugin.Create().
+		SetName("suspended-plugin").
+		SetDisplayName("Suspended Plugin").
+		SetCategory(plugin.CategoryAnalytics).
+		SetDescription("Suspended plugin").
+		SetAuthor("test-author").
+		SetStatus(plugin.StatusSuspended).
+		Save(context.Background())
+	require.NoError(t, err)
+
+	w := tc.PerformRequest("GET", "/api/v1/plugins/suspended-plugin")
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEqual(t, float64(0), response["code"])
+}
+
 // TestGetPluginVersions_Success 测试获取插件版本列表成功
 func TestGetPluginVersions_Success(t *testing.T) {
 	tc := SetupTestContext(t)
@@ -219,6 +245,32 @@ func TestGetPluginVersions_NotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	// 检查错误码非 0
+	assert.NotEqual(t, float64(0), response["code"])
+}
+
+// TestGetPluginVersions_Suspended 测试下架插件版本不可见
+func TestGetPluginVersions_Suspended(t *testing.T) {
+	tc := SetupTestContext(t)
+	defer tc.Cleanup()
+
+	pluginEntity, err := tc.Client.Plugin.Create().
+		SetName("suspended-plugin").
+		SetDisplayName("Suspended Plugin").
+		SetCategory(plugin.CategoryAnalytics).
+		SetDescription("Suspended plugin").
+		SetAuthor("test-author").
+		SetStatus(plugin.StatusSuspended).
+		Save(context.Background())
+	require.NoError(t, err)
+
+	tc.CreateTestPluginVersion(t, pluginEntity.ID, "1.0.0")
+
+	w := tc.PerformRequest("GET", "/api/v1/plugins/suspended-plugin/versions")
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
 	assert.NotEqual(t, float64(0), response["code"])
 }
 

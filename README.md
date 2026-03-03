@@ -1,6 +1,15 @@
 # Sub2API Plugin Market
 
-Sub2API 插件市场服务 - 提供插件上传、审核、分发和管理功能。
+[![GitHub release](https://img.shields.io/github/v/release/IanShaw027/sub2api-plugin-market)](https://github.com/IanShaw027/sub2api-plugin-market/releases)
+[![Go Version](https://img.shields.io/badge/Go-1.25.7-blue)](https://go.dev/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/IanShaw027/sub2api-plugin-market/workflows/CI/badge.svg)](https://github.com/IanShaw027/sub2api-plugin-market/actions)
+
+Sub2API 插件市场服务 - 提供插件浏览、下载、签名验证功能。
+
+**🔗 相关项目**
+- [sub2api-pluginsign](https://github.com/IanShaw027/sub2api-pluginsign) - Ed25519 签名验证库
+- [sub2api-storage](https://github.com/IanShaw027/sub2api-storage) - MinIO + 本地存储抽象库
 
 ## 功能特性
 

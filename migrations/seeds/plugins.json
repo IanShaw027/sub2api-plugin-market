@@ -1,0 +1,76 @@
+{
+  "trust_keys": [
+    {
+      "key_id": "official-2024",
+      "public_key": "MCowBQYDK2VwAyEAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=",
+      "key_type": "official",
+      "owner_name": "Sub2API Official",
+      "owner_email": "security@sub2api.com",
+      "description": "Official signing key for Sub2API plugins",
+      "is_active": true,
+      "expires_at": null
+    }
+  ],
+  "plugins": [
+    {
+      "name": "rate-limiter",
+      "display_name": "Rate Limiter",
+      "description": "智能速率限制插件，支持多种限流算法（令牌桶、漏桶、滑动窗口）",
+      "author": "Sub2API Team",
+      "repository_url": "https://github.com/sub2api/plugin-rate-limiter",
+      "homepage_url": "https://sub2api.com/plugins/rate-limiter",
+      "license": "MIT",
+      "category": "proxy",
+      "tags": ["rate-limit", "throttle", "security"],
+      "is_official": true,
+      "is_verified": true,
+      "download_count": 0,
+      "status": "active"
+    },
+    {
+      "name": "jwt-auth",
+      "display_name": "JWT Authentication",
+      "description": "JWT 令牌验证插件，支持 RS256/HS256 算法，可配置密钥轮换",
+      "author": "Sub2API Team",
+      "repository_url": "https://github.com/sub2api/plugin-jwt-auth",
+      "homepage_url": "https://sub2api.com/plugins/jwt-auth",
+      "license": "MIT",
+      "category": "auth",
+      "tags": ["jwt", "authentication", "security"],
+      "is_official": true,
+      "is_verified": true,
+      "download_count": 0,
+      "status": "active"
+    }
+  ],
+  "plugin_versions": [
+    {
+      "plugin_name": "rate-limiter",
+      "version": "1.0.0",
+      "changelog": "Initial release with token bucket and leaky bucket algorithms",
+      "wasm_url": "plugins/rate-limiter/1.0.0/rate-limiter.wasm",
+      "wasm_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "signature": "MEUCIQXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "file_size": 524288,
+      "min_api_version": "1.0.0",
+      "max_api_version": null,
+      "dependencies": [],
+      "status": "published",
+      "published_at": "2024-01-15T10:00:00Z"
+    },
+    {
+      "plugin_name": "jwt-auth",
+      "version": "1.0.0",
+      "changelog": "Initial release with RS256 and HS256 support",
+      "wasm_url": "plugins/jwt-auth/1.0.0/jwt-auth.wasm",
+      "wasm_hash": "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a",
+      "signature": "MEUCIQYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+      "file_size": 614400,
+      "min_api_version": "1.0.0",
+      "max_api_version": null,
+      "dependencies": [],
+      "status": "published",
+      "published_at": "2024-01-20T14:30:00Z"
+    }
+  ]
+}

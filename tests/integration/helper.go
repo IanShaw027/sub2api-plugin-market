@@ -1,0 +1,130 @@
+package integration
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"github.com/sub2api/plugin-market/ent"
+	"github.com/sub2api/plugin-market/ent/enttest"
+	"github.com/sub2api/plugin-market/ent/plugin"
+	"github.com/sub2api/plugin-market/ent/trustkey"
+	v1 "github.com/sub2api/plugin-market/internal/api/v1"
+	"github.com/sub2api/plugin-market/internal/api/v1/handler"
+	"github.com/sub2api/plugin-market/internal/repository"
+	"github.com/sub2api/plugin-market/internal/service"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+// TestContext 测试上下文
+type TestContext struct {
+	Client          *ent.Client
+	Router          *gin.Engine
+	PluginRepo      *repository.PluginRepository
+	TrustKeyRepo    *repository.TrustKeyRepository
+	PluginService   *service.PluginService
+	TrustKeyService *service.TrustKeyService
+}
+
+// SetupTestContext 设置测试上下文
+func SetupTestContext(t *testing.T) *TestContext {
+	// 使用 SQLite 内存数据库进行测试
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+
+	// 初始化 repository
+	pluginRepo := repository.NewPluginRepository(client)
+	trustKeyRepo := repository.NewTrustKeyRepository(client)
+
+	// 初始化 service
+	pluginService := service.NewPluginService(pluginRepo)
+	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
+
+	// 初始化 handler
+	pluginHandler := handler.NewPluginHandler(pluginService)
+	trustKeyHandler := handler.NewTrustKeyHandler(trustKeyService)
+
+	// 设置 Gin 为测试模式
+	gin.SetMode(gin.TestMode)
+
+	// 创建路由
+	router := gin.New()
+	v1.RegisterRoutes(router, pluginHandler, nil, trustKeyHandler)
+
+	return &TestContext{
+		Client:          client,
+		Router:          router,
+		PluginRepo:      pluginRepo,
+		TrustKeyRepo:    trustKeyRepo,
+		PluginService:   pluginService,
+		TrustKeyService: trustKeyService,
+	}
+}
+
+// Cleanup 清理测试上下文
+func (tc *TestContext) Cleanup() {
+	tc.Client.Close()
+}
+
+// PerformRequest 执行 HTTP 请求
+func (tc *TestContext) PerformRequest(method, path string) *httptest.ResponseRecorder {
+	req, _ := http.NewRequest(method, path, nil)
+	w := httptest.NewRecorder()
+	tc.Router.ServeHTTP(w, req)
+	return w
+}
+
+// CreateTestPlugin 创建测试插件
+func (tc *TestContext) CreateTestPlugin(t *testing.T, name, category string, isOfficial bool) *ent.Plugin {
+	p, err := tc.Client.Plugin.Create().
+		SetName(name).
+		SetDisplayName(name + " Display").
+		SetCategory(plugin.Category(category)).
+		SetDescription("Test plugin: " + name).
+		SetAuthor("test-author").
+		SetIsOfficial(isOfficial).
+		SetDownloadCount(0).
+		Save(context.Background())
+	require.NoError(t, err)
+	return p
+}
+
+// CreateTestPluginVersion 创建测试插件版本
+func (tc *TestContext) CreateTestPluginVersion(t *testing.T, pluginID uuid.UUID, version string) *ent.PluginVersion {
+	pv, err := tc.Client.PluginVersion.Create().
+		SetPluginID(pluginID).
+		SetVersion(version).
+		SetChangelog("Release notes for " + version).
+		SetMinAPIVersion("1.0.0").
+		SetPluginAPIVersion("1.0.0").
+		SetWasmURL("/test/path/" + version).
+		SetFileSize(1024).
+		SetWasmHash("test-checksum-" + version).
+		SetSignature("test-signature-" + version).
+		SetStatus("published").
+		SetPublishedAt(time.Now()).
+		Save(context.Background())
+	require.NoError(t, err)
+	return pv
+}
+
+// CreateTestTrustKey 创建测试信任密钥
+func (tc *TestContext) CreateTestTrustKey(t *testing.T, keyID, keyType string, isActive bool) *ent.TrustKey {
+	key, err := tc.Client.TrustKey.Create().
+		SetKeyID(keyID).
+		SetKeyType(trustkey.KeyType(keyType)).
+		SetPublicKey("test-public-key-" + keyID).
+		SetOwnerName("test-owner").
+		SetOwnerEmail("test@example.com").
+		SetDescription("Test trust key: " + keyID).
+		SetIsActive(isActive).
+		SetCreatedAt(time.Now()).
+		Save(context.Background())
+	require.NoError(t, err)
+	return key
+}

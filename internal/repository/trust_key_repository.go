@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	"github.com/sub2api/plugin-market/ent"
-	"github.com/sub2api/plugin-market/ent/trustkey"
+	"github.com/IanShaw027/sub2api-plugin-market/ent"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 )
 
 // TrustKeyRepository 信任密钥数据访问层

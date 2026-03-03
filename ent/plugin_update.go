@@ -13,11 +13,11 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/sub2api/plugin-market/ent/downloadlog"
-	"github.com/sub2api/plugin-market/ent/plugin"
-	"github.com/sub2api/plugin-market/ent/pluginversion"
-	"github.com/sub2api/plugin-market/ent/predicate"
-	"github.com/sub2api/plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
 )
 
 // PluginUpdate is the builder for updating Plugin entities.

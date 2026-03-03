@@ -4,7 +4,7 @@
 
 Sub2API Plugin Market 提供 RESTful API 用于插件浏览、下载和信任密钥管理。
 
-**Base URL**: `http://localhost:8080/api/v1`
+**Base URL**: `http://localhost:8081/api/v1`
 
 **认证**: 当前版本无需认证（浏览和下载为公开接口）
 
@@ -109,16 +109,16 @@ GET /api/v1/plugins
 
 ```bash
 # 获取所有插件
-curl http://localhost:8080/api/v1/plugins
+curl http://localhost:8081/api/v1/plugins
 
 # 筛选官方认证插件
-curl "http://localhost:8080/api/v1/plugins?is_official=true"
+curl "http://localhost:8081/api/v1/plugins?is_official=true"
 
 # 搜索存储相关插件
-curl "http://localhost:8080/api/v1/plugins?search=storage&page=1&page_size=10"
+curl "http://localhost:8081/api/v1/plugins?search=storage&page=1&page_size=10"
 
 # 按分类筛选
-curl "http://localhost:8080/api/v1/plugins?category=auth"
+curl "http://localhost:8081/api/v1/plugins?category=auth"
 ```
 
 ---
@@ -170,7 +170,7 @@ GET /api/v1/plugins/:name
 **cURL 示例**
 
 ```bash
-curl http://localhost:8080/api/v1/plugins/auth-jwt
+curl http://localhost:8081/api/v1/plugins/auth-jwt
 ```
 
 **错误响应**
@@ -246,7 +246,7 @@ GET /api/v1/plugins/:name/versions
 **cURL 示例**
 
 ```bash
-curl http://localhost:8080/api/v1/plugins/auth-jwt/versions
+curl http://localhost:8081/api/v1/plugins/auth-jwt/versions
 ```
 
 ---
@@ -280,10 +280,10 @@ GET /api/v1/plugins/:name/versions/:version/download
 
 ```bash
 # 下载插件
-curl -O -J http://localhost:8080/api/v1/plugins/auth-jwt/versions/1.2.0/download
+curl -O -J http://localhost:8081/api/v1/plugins/auth-jwt/versions/1.2.0/download
 
 # 下载并验证哈希
-curl -v http://localhost:8080/api/v1/plugins/auth-jwt/versions/1.2.0/download \
+curl -v http://localhost:8081/api/v1/plugins/auth-jwt/versions/1.2.0/download \
   -o auth-jwt-1.2.0.wasm
 ```
 
@@ -354,10 +354,10 @@ GET /api/v1/trust-keys
 
 ```bash
 # 获取所有激活的密钥
-curl http://localhost:8080/api/v1/trust-keys
+curl http://localhost:8081/api/v1/trust-keys
 
 # 获取所有密钥（包括过期）
-curl "http://localhost:8080/api/v1/trust-keys?is_active=false"
+curl "http://localhost:8081/api/v1/trust-keys?is_active=false"
 ```
 
 ---
@@ -401,7 +401,7 @@ GET /api/v1/trust-keys/:key_id
 **cURL 示例**
 
 ```bash
-curl http://localhost:8080/api/v1/trust-keys/key_official_2025
+curl http://localhost:8081/api/v1/trust-keys/key_official_2025
 ```
 
 ---

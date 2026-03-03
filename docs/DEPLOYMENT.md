@@ -72,7 +72,7 @@ docker-compose ps
 docker-compose logs -f app
 
 # 测试 API
-curl http://localhost:8080/api/v1/plugins
+curl http://localhost:8081/api/v1/plugins
 ```
 
 ---
@@ -278,7 +278,7 @@ sudo systemctl status plugin-market
 
 ```bash
 # 健康检查端点
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 
 # 预期响应
 {

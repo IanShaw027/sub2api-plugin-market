@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/sub2api/plugin-market/ent/predicate"
-	"github.com/sub2api/plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
 )
 
 // SubmissionDelete is the builder for deleting a Submission entity.

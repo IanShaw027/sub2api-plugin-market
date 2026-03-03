@@ -178,9 +178,9 @@ make build
 ./test_api.sh
 
 # 或手动测试
-curl http://localhost:8080/api/v1/plugins
-curl http://localhost:8080/api/v1/plugins/example-plugin
-curl http://localhost:8080/api/v1/trust-keys
+curl http://localhost:8081/api/v1/plugins
+curl http://localhost:8081/api/v1/plugins/example-plugin
+curl http://localhost:8081/api/v1/trust-keys
 ```
 
 ## 交付标准检查

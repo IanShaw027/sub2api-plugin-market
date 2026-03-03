@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sub2api/plugin-market/ent"
+	"github.com/IanShaw027/sub2api-plugin-market/ent"
 )
 
 // The DownloadLogFunc type is an adapter to allow the use of ordinary

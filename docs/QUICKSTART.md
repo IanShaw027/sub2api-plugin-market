@@ -57,7 +57,7 @@ docker-compose logs -f app
 
 ```bash
 # 测试健康检查
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 
 # 预期响应
 {
@@ -75,7 +75,7 @@ curl http://localhost:8080/health
 ### 1. 浏览插件列表
 
 ```bash
-curl http://localhost:8080/api/v1/plugins
+curl http://localhost:8081/api/v1/plugins
 ```
 
 **响应示例**：
@@ -114,7 +114,7 @@ make seed
 ### 3. 再次查询插件列表
 
 ```bash
-curl http://localhost:8080/api/v1/plugins
+curl http://localhost:8081/api/v1/plugins
 ```
 
 现在应该能看到测试插件数据。
@@ -122,29 +122,29 @@ curl http://localhost:8080/api/v1/plugins
 ### 4. 查询插件详情
 
 ```bash
-curl http://localhost:8080/api/v1/plugins/auth-jwt
+curl http://localhost:8081/api/v1/plugins/auth-jwt
 ```
 
 ### 5. 查询插件版本
 
 ```bash
-curl http://localhost:8080/api/v1/plugins/auth-jwt/versions
+curl http://localhost:8081/api/v1/plugins/auth-jwt/versions
 ```
 
 ### 6. 下载插件
 
 ```bash
-curl -O -J http://localhost:8080/api/v1/plugins/auth-jwt/versions/1.0.0/download
+curl -O -J http://localhost:8081/api/v1/plugins/auth-jwt/versions/1.0.0/download
 ```
 
 ### 7. 查询信任密钥
 
 ```bash
 # 获取所有密钥
-curl http://localhost:8080/api/v1/trust-keys
+curl http://localhost:8081/api/v1/trust-keys
 
 # 获取指定密钥详情
-curl http://localhost:8080/api/v1/trust-keys/key_official_2025
+curl http://localhost:8081/api/v1/trust-keys/key_official_2025
 ```
 
 ---
@@ -207,7 +207,7 @@ air
 ### 6. 验证开发环境
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 ```
 
 ---

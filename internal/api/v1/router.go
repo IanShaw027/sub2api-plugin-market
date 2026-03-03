@@ -2,8 +2,8 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/sub2api/plugin-market/internal/api/v1/handler"
-	"github.com/sub2api/plugin-market/internal/api/v1/middleware"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/handler"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/middleware"
 )
 
 // RegisterRoutes 注册 v1 版本的所有路由

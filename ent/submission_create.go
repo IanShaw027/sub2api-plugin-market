@@ -11,9 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/sub2api/plugin-market/ent/plugin"
-	"github.com/sub2api/plugin-market/ent/pluginversion"
-	"github.com/sub2api/plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
 )
 
 // SubmissionCreate is the builder for creating a Submission entity.

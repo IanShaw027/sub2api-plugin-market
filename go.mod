@@ -1,4 +1,4 @@
-module github.com/sub2api/plugin-market
+module github.com/IanShaw027/sub2api-plugin-market
 
 go 1.25.7
 
@@ -75,4 +75,5 @@ replace (
 	github.com/IanShaw027/sub2api-pluginsign v0.1.1 => /Users/ianshaw/Documents/fork/sub2api-pluginsign
 	github.com/IanShaw027/sub2api-storage => /Users/ianshaw/Documents/fork/sub2api-storage
 	github.com/IanShaw027/sub2api-storage v0.1.1 => /Users/ianshaw/Documents/fork/sub2api-storage
+	github.com/sub2api/plugin-market => .
 )

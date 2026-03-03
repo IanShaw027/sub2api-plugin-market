@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sub2api/plugin-market/internal/service"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/service"
 )
 
 // PluginHandler 插件处理器

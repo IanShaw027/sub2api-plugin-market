@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sub2api/plugin-market/ent/downloadlog"
-	"github.com/sub2api/plugin-market/ent/plugin"
-	"github.com/sub2api/plugin-market/ent/pluginversion"
-	"github.com/sub2api/plugin-market/ent/schema"
-	"github.com/sub2api/plugin-market/ent/submission"
-	"github.com/sub2api/plugin-market/ent/trustkey"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/schema"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 )
 
 // The init function reads all schema descriptors with runtime code

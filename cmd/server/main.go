@@ -9,11 +9,11 @@ import (
 	"github.com/IanShaw027/sub2api-storage"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
-	"github.com/sub2api/plugin-market/ent"
-	v1 "github.com/sub2api/plugin-market/internal/api/v1"
-	"github.com/sub2api/plugin-market/internal/api/v1/handler"
-	"github.com/sub2api/plugin-market/internal/repository"
-	"github.com/sub2api/plugin-market/internal/service"
+	"github.com/IanShaw027/sub2api-plugin-market/ent"
+	v1 "github.com/IanShaw027/sub2api-plugin-market/internal/api/v1"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/handler"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/repository"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/service"
 )
 
 func main() {
@@ -37,20 +37,18 @@ func main() {
 	pluginRepo := repository.NewPluginRepository(client)
 	trustKeyRepo := repository.NewTrustKeyRepository(client)
 
-	pluginService := service.NewPluginService(pluginRepo)
-	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
-	downloadService := service.NewDownloadService(pluginRepo, storageBackend, client)
-
-	// 初始化签名验证服务
+	// 初始化签名验证服务（下载链路强制依赖）
 	hostRuntime := getEnv("HOST_RUNTIME", "wasm")
 	hostAPIVersion := getEnv("HOST_API_VERSION", "1.0.0")
 	verificationService, err := service.NewVerificationService(trustKeyRepo, hostRuntime, hostAPIVersion)
 	if err != nil {
-		log.Printf("Warning: Failed to initialize verification service: %v", err)
-	} else {
-		log.Println("Verification service initialized successfully")
+		log.Fatalf("Failed to initialize verification service: %v", err)
 	}
-	_ = verificationService // 暂时未使用，后续可在下载时验证
+	log.Println("Verification service initialized successfully")
+
+	pluginService := service.NewPluginService(pluginRepo)
+	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
+	downloadService := service.NewDownloadService(pluginRepo, storageBackend, client, verificationService)
 
 	pluginHandler := handler.NewPluginHandler(pluginService)
 	downloadHandler := handler.NewDownloadHandler(downloadService)
@@ -111,4 +109,3 @@ func getEnv(key, defaultValue string) string {
 	}
 	return defaultValue
 }
-

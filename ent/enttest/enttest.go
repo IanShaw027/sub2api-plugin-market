@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"github.com/sub2api/plugin-market/ent"
+	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	// required by schema hooks.
-	_ "github.com/sub2api/plugin-market/ent/runtime"
+	_ "github.com/IanShaw027/sub2api-plugin-market/ent/runtime"
 
 	"entgo.io/ent/dialect/sql/schema"
-	"github.com/sub2api/plugin-market/ent/migrate"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/migrate"
 )
 
 type (

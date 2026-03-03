@@ -7,7 +7,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/sub2api/plugin-market/ent/predicate"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
 )
 
 // ID filters vertices based on their ID field.

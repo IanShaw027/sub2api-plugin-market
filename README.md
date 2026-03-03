@@ -67,7 +67,7 @@ SERVER_PORT=8080
 
 ## API 文档
 
-服务启动后访问：`http://localhost:8080/swagger/index.html`
+服务启动后访问：`http://localhost:8081/swagger/index.html`
 
 ## 项目结构
 

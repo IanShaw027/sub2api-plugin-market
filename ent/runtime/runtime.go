@@ -2,7 +2,7 @@
 
 package runtime
 
-// The schema-stitching logic is generated in github.com/sub2api/plugin-market/ent/runtime.go
+// The schema-stitching logic is generated in github.com/IanShaw027/sub2api-plugin-market/ent/runtime.go
 
 const (
 	Version = "v0.14.5"                                         // Version of ent codegen.

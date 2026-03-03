@@ -13,11 +13,11 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/sub2api/plugin-market/ent/downloadlog"
-	"github.com/sub2api/plugin-market/ent/plugin"
-	"github.com/sub2api/plugin-market/ent/pluginversion"
-	"github.com/sub2api/plugin-market/ent/predicate"
-	"github.com/sub2api/plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
 )
 
 // PluginQuery is the builder for querying Plugin entities.

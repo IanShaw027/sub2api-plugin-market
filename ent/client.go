@@ -10,17 +10,17 @@ import (
 	"reflect"
 
 	"github.com/google/uuid"
-	"github.com/sub2api/plugin-market/ent/migrate"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/migrate"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/sub2api/plugin-market/ent/downloadlog"
-	"github.com/sub2api/plugin-market/ent/plugin"
-	"github.com/sub2api/plugin-market/ent/pluginversion"
-	"github.com/sub2api/plugin-market/ent/submission"
-	"github.com/sub2api/plugin-market/ent/trustkey"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 )
 
 // Client is the client that holds all ent builders.

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/sub2api/plugin-market/ent"
-	"github.com/sub2api/plugin-market/ent/plugin"
-	"github.com/sub2api/plugin-market/ent/pluginversion"
+	"github.com/IanShaw027/sub2api-plugin-market/ent"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 )
 
 // PluginRepository 插件数据访问层
@@ -64,7 +64,10 @@ func (r *PluginRepository) ListPlugins(ctx context.Context, category, search str
 // GetPluginByName 根据名称获取插件详情
 func (r *PluginRepository) GetPluginByName(ctx context.Context, name string) (*ent.Plugin, error) {
 	return r.client.Plugin.Query().
-		Where(plugin.NameEQ(name)).
+		Where(
+			plugin.NameEQ(name),
+			plugin.StatusEQ(plugin.StatusActive),
+		).
 		WithVersions(func(q *ent.PluginVersionQuery) {
 			q.Where(pluginversion.StatusEQ(pluginversion.StatusPublished)).
 				Order(ent.Desc(pluginversion.FieldPublishedAt))
@@ -75,7 +78,10 @@ func (r *PluginRepository) GetPluginByName(ctx context.Context, name string) (*e
 // GetPluginVersions 获取插件的所有版本
 func (r *PluginRepository) GetPluginVersions(ctx context.Context, pluginName string) ([]*ent.PluginVersion, error) {
 	p, err := r.client.Plugin.Query().
-		Where(plugin.NameEQ(pluginName)).
+		Where(
+			plugin.NameEQ(pluginName),
+			plugin.StatusEQ(plugin.StatusActive),
+		).
 		Only(ctx)
 	if err != nil {
 		return nil, err
@@ -93,7 +99,10 @@ func (r *PluginRepository) GetPluginVersions(ctx context.Context, pluginName str
 // GetPluginVersion 获取指定版本
 func (r *PluginRepository) GetPluginVersion(ctx context.Context, pluginName, version string) (*ent.PluginVersion, error) {
 	p, err := r.client.Plugin.Query().
-		Where(plugin.NameEQ(pluginName)).
+		Where(
+			plugin.NameEQ(pluginName),
+			plugin.StatusEQ(plugin.StatusActive),
+		).
 		Only(ctx)
 	if err != nil {
 		return nil, err

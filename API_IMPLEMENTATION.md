@@ -221,13 +221,13 @@ go build -o bin/server ./cmd/server
 或使用 curl 手动测试：
 ```bash
 # 健康检查
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 
 # 获取插件列表
-curl http://localhost:8080/api/v1/plugins
+curl http://localhost:8081/api/v1/plugins
 
 # 获取插件详情
-curl http://localhost:8080/api/v1/plugins/example-plugin
+curl http://localhost:8081/api/v1/plugins/example-plugin
 ```
 
 ## 错误码

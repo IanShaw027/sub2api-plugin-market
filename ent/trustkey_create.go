@@ -11,7 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/sub2api/plugin-market/ent/trustkey"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 )
 
 // TrustKeyCreate is the builder for creating a TrustKey entity.

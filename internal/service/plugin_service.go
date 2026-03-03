@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/sub2api/plugin-market/ent"
-	"github.com/sub2api/plugin-market/internal/repository"
+	"github.com/IanShaw027/sub2api-plugin-market/ent"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/repository"
 )
 
 // PluginService 插件业务逻辑层

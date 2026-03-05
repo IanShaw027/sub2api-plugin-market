@@ -28,6 +28,8 @@
 归档脚本：`scripts/archive-audit-logs.sh`
 
 支持参数：
+- `PG_DSN`（非 dry-run 时必填）
+- `ARCHIVE_BEFORE_DAYS`（默认 90）
 - `ARCHIVE_MODE=move|copy|purge`
   - `move`：导出后删除热层（默认）
   - `copy`：仅导出，保留热层
@@ -36,6 +38,7 @@
 - `COLD_STORAGE_MODE=local|local_and_s3|none`
 - `S3_URI=s3://bucket/path`（`local_and_s3` 必填）
 - `DRY_RUN=1|0`
+- `OUTPUT_DIR`（可选，默认 `scripts/../data/audit-archive`）
 
 推荐生产参数：
 

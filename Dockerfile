@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ RUN apk add --no-cache ca-certificates tzdata
 COPY --from=builder /app/bin/server /app/server
 
 # 暴露端口
-EXPOSE 8080
+EXPOSE 8081
 
 # 运行
 CMD ["/app/server"]

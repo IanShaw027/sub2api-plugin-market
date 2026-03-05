@@ -1,0 +1,453 @@
+openapi: 3.0.3
+info:
+  title: Sub2API Plugin Market API
+  version: 1.0.0
+  description: |
+    插件市场公开 API 与管理后台 API（当前实现版本）。
+servers:
+  - url: http://localhost:8081
+
+paths:
+  /health:
+    get:
+      summary: 健康检查
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/v1/plugins:
+    get:
+      summary: 获取插件列表
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: is_official
+          schema:
+            type: boolean
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          description: 服务端错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /api/v1/plugins/{name}:
+    get:
+      summary: 获取插件详情
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          description: 插件不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /api/v1/plugins/{name}/versions:
+    get:
+      summary: 获取插件版本列表
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          description: 插件不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /api/v1/plugins/{name}/versions/{version}/download:
+    get:
+      summary: 下载插件（302 跳转到预签名 URL）
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Found
+          headers:
+            Location:
+              description: 预签名下载链接
+              schema:
+                type: string
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          description: 插件版本不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          description: 校验或存储异常
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /api/v1/trust-keys:
+    get:
+      summary: 获取信任密钥列表
+      parameters:
+        - in: query
+          name: key_type
+          schema:
+            type: string
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          description: 服务端错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /api/v1/trust-keys/{key_id}:
+    get:
+      summary: 获取信任密钥详情
+      parameters:
+        - in: path
+          name: key_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          description: 信任密钥不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/auth/login:
+    post:
+      summary: 管理员登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: 登录响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          description: 认证失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '403':
+          description: 用户被禁用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          description: 服务端错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/auth/refresh:
+    post:
+      summary: 刷新管理员访问令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          description: 刷新令牌无效或用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '403':
+          description: 用户被禁用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          description: 服务端错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/auth/me:
+    get:
+      summary: 获取当前管理员信息
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/auth/logout:
+    post:
+      summary: 管理员登出
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/submissions:
+    get:
+      summary: 提交列表
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, approved, rejected, cancelled]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/submissions/{id}:
+    get:
+      summary: 提交详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/submissions/stats:
+    get:
+      summary: 提交统计
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/submissions/{id}/review:
+    put:
+      summary: 审核提交
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  description: 推荐 approve/reject；兼容 approved/rejected
+                  enum: [approve, reject, approved, rejected]
+                reviewer_notes:
+                  type: string
+                comment:
+                  type: string
+                  description: 兼容旧字段
+      responses:
+        '200':
+          description: 统一响应格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+components:
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          nullable: true

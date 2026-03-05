@@ -6,6 +6,8 @@
 *.dylib
 bin/
 dist/
+server
+init-admin
 
 # Test binary
 *.test

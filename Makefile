@@ -69,12 +69,12 @@ audit-restore-validate: ## 校验恢复结果（默认 /tmp/restored-audit-logs.
 	RESTORED_FILE=$${RESTORED_FILE:-/tmp/restored-audit-logs.jsonl} EXPECTED_SHA256=$${EXPECTED_SHA256:-} ./scripts/validate-restored-audit-logs.sh
 
 audit-restore-query-sample: ## 对 sample 执行分页过滤查询示例
-	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} PAGE=$${PAGE:-1} PAGE_SIZE=$${PAGE_SIZE:-2} ACTION=$${ACTION:-plugin.download} ./scripts/query-restored-audit-logs.sh
+	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} PAGE=$${PAGE:-1} PAGE_SIZE=$${PAGE_SIZE:-2} ACTION=$${ACTION:-submission.approved} ./scripts/query-restored-audit-logs.sh
 
 audit-dry-run: ## 串行执行审计 dry-run（archive/restore/query/validate）
 	DRY_RUN=1 ./scripts/archive-audit-logs.sh
 	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} DRY_RUN=1 ./scripts/restore-audit-logs.sh --output /tmp/restored-audit-logs.jsonl
-	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} PAGE=$${PAGE:-1} PAGE_SIZE=$${PAGE_SIZE:-2} ACTION=$${ACTION:-plugin.download} ./scripts/query-restored-audit-logs.sh
+	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} PAGE=$${PAGE:-1} PAGE_SIZE=$${PAGE_SIZE:-2} ACTION=$${ACTION:-submission.approved} ./scripts/query-restored-audit-logs.sh
 	@if [ -f "$${RESTORED_FILE:-/tmp/restored-audit-logs.jsonl}" ]; then \
 		RESTORED_FILE=$${RESTORED_FILE:-/tmp/restored-audit-logs.jsonl} EXPECTED_SHA256=$${EXPECTED_SHA256:-} ./scripts/validate-restored-audit-logs.sh; \
 	else \

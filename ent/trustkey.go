@@ -9,8 +9,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/google/uuid"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
+	"github.com/google/uuid"
 )
 
 // TrustKey is the model entity for the TrustKey schema.

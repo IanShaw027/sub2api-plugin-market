@@ -8,6 +8,41 @@ import (
 )
 
 var (
+	// AdminUsersColumns holds the columns for the "admin_users" table.
+	AdminUsersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "username", Type: field.TypeString, Unique: true},
+		{Name: "email", Type: field.TypeString, Unique: true},
+		{Name: "password_hash", Type: field.TypeString},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"super_admin", "admin", "reviewer"}, Default: "reviewer"},
+		{Name: "is_active", Type: field.TypeBool, Default: true},
+		{Name: "last_login_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// AdminUsersTable holds the schema information for the "admin_users" table.
+	AdminUsersTable = &schema.Table{
+		Name:       "admin_users",
+		Columns:    AdminUsersColumns,
+		PrimaryKey: []*schema.Column{AdminUsersColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "adminuser_username",
+				Unique:  true,
+				Columns: []*schema.Column{AdminUsersColumns[1]},
+			},
+			{
+				Name:    "adminuser_email",
+				Unique:  true,
+				Columns: []*schema.Column{AdminUsersColumns[2]},
+			},
+			{
+				Name:    "adminuser_is_active",
+				Unique:  false,
+				Columns: []*schema.Column{AdminUsersColumns[5]},
+			},
+		},
+	}
 	// DownloadLogsColumns holds the columns for the "download_logs" table.
 	DownloadLogsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -237,6 +272,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AdminUsersTable,
 		DownloadLogsTable,
 		PluginsTable,
 		PluginVersionsTable,

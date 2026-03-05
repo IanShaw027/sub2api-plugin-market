@@ -5,19 +5,38 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
-	"github.com/IanShaw027/sub2api-storage"
-	"github.com/gin-gonic/gin"
-	_ "github.com/lib/pq"
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/admin"
+	adminHandler "github.com/IanShaw027/sub2api-plugin-market/internal/admin/handler"
+	adminService "github.com/IanShaw027/sub2api-plugin-market/internal/admin/service"
 	v1 "github.com/IanShaw027/sub2api-plugin-market/internal/api/v1"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/handler"
+	"github.com/IanShaw027/sub2api-plugin-market/internal/auth"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/repository"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/service"
+	"github.com/IanShaw027/sub2api-storage"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
+const weakAdminJWTSecret = "your-secret-key-change-in-production"
+
 func main() {
+	// 加载 .env 文件
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found, using environment variables")
+	}
+
 	log.Println("Sub2API Plugin Market Server starting...")
+
+	// 启动早期校验管理后台 JWT 密钥，避免被后续错误掩盖
+	jwtSecret, err := resolveAdminJWTSecret()
+	if err != nil {
+		log.Fatalf("Invalid ADMIN_JWT_SECRET: %v", err)
+	}
 
 	// 初始化数据库连接
 	client, err := initDatabase()
@@ -54,6 +73,16 @@ func main() {
 	downloadHandler := handler.NewDownloadHandler(downloadService)
 	trustKeyHandler := handler.NewTrustKeyHandler(trustKeyService)
 
+	// 初始化管理后台服务
+	jwtExpireHours := 2
+	jwtRefreshExpireDays := 7
+	jwtService := auth.NewJWTService(jwtSecret, jwtExpireHours, jwtRefreshExpireDays)
+	authService := auth.NewAdminService(client)
+	submissionService := adminService.NewSubmissionService(client)
+
+	authHandler := adminHandler.NewAuthHandler(authService, jwtService)
+	submissionHandler := adminHandler.NewSubmissionHandler(submissionService)
+
 	// 初始化 Gin 路由
 	r := gin.Default()
 
@@ -65,8 +94,11 @@ func main() {
 	// 注册 API 路由
 	v1.RegisterRoutes(r, pluginHandler, downloadHandler, trustKeyHandler)
 
+	// 注册管理后台路由
+	admin.RegisterRoutes(r, authHandler, submissionHandler, jwtService, authService)
+
 	// 启动服务器
-	port := getEnv("PORT", "8080")
+	port := getEnv("PORT", "8081")
 	addr := fmt.Sprintf(":%s", port)
 
 	log.Printf("Server listening on %s", addr)
@@ -108,4 +140,22 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// resolveAdminJWTSecret 解析并校验 ADMIN_JWT_SECRET
+func resolveAdminJWTSecret() (string, error) {
+	secret := strings.TrimSpace(os.Getenv("ADMIN_JWT_SECRET"))
+	if secret == "" {
+		return "", fmt.Errorf("missing ADMIN_JWT_SECRET, please set a strong secret (example: `openssl rand -base64 32`)")
+	}
+
+	if gin.Mode() == gin.ReleaseMode && secret == weakAdminJWTSecret {
+		return "", fmt.Errorf("weak default secret is not allowed when GIN_MODE=release")
+	}
+
+	if secret == weakAdminJWTSecret {
+		log.Println("Warning: ADMIN_JWT_SECRET is using a weak default value; do not use it in production")
+	}
+
+	return secret, nil
 }

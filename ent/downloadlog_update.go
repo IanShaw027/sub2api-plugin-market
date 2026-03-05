@@ -10,10 +10,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/google/uuid"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
+	"github.com/google/uuid"
 )
 
 // DownloadLogUpdate is the builder for updating DownloadLog entities.

@@ -1,15 +1,15 @@
 package integration
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/enttest"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
@@ -18,6 +18,9 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/handler"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/repository"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/service"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -29,6 +32,7 @@ type TestContext struct {
 	PluginRepo      *repository.PluginRepository
 	TrustKeyRepo    *repository.TrustKeyRepository
 	PluginService   *service.PluginService
+	DownloadService *service.DownloadService
 	TrustKeyService *service.TrustKeyService
 }
 
@@ -43,10 +47,17 @@ func SetupTestContext(t *testing.T) *TestContext {
 
 	// 初始化 service
 	pluginService := service.NewPluginService(pluginRepo)
+	downloadService := service.NewDownloadService(
+		pluginRepo,
+		&fakeStorage{},
+		client,
+		&fakeVerifier{},
+	)
 	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
 
 	// 初始化 handler
 	pluginHandler := handler.NewPluginHandler(pluginService)
+	downloadHandler := handler.NewDownloadHandler(downloadService)
 	trustKeyHandler := handler.NewTrustKeyHandler(trustKeyService)
 
 	// 设置 Gin 为测试模式
@@ -54,7 +65,7 @@ func SetupTestContext(t *testing.T) *TestContext {
 
 	// 创建路由
 	router := gin.New()
-	v1.RegisterRoutes(router, pluginHandler, nil, trustKeyHandler)
+	v1.RegisterRoutes(router, pluginHandler, downloadHandler, trustKeyHandler)
 
 	return &TestContext{
 		Client:          client,
@@ -62,6 +73,7 @@ func SetupTestContext(t *testing.T) *TestContext {
 		PluginRepo:      pluginRepo,
 		TrustKeyRepo:    trustKeyRepo,
 		PluginService:   pluginService,
+		DownloadService: downloadService,
 		TrustKeyService: trustKeyService,
 	}
 }
@@ -127,4 +139,33 @@ func (tc *TestContext) CreateTestTrustKey(t *testing.T, keyID, keyType string, i
 		Save(context.Background())
 	require.NoError(t, err)
 	return key
+}
+
+type fakeStorage struct{}
+
+func (s *fakeStorage) Upload(_ context.Context, _ string, _ io.Reader) (string, error) {
+	return "https://example.com/uploaded", nil
+}
+
+func (s *fakeStorage) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	content := fmt.Sprintf("wasm-binary:%s", key)
+	return io.NopCloser(bytes.NewBufferString(content)), nil
+}
+
+func (s *fakeStorage) GetPresignedURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return fmt.Sprintf("https://example.com/download%s", key), nil
+}
+
+func (s *fakeStorage) Delete(_ context.Context, _ string) error {
+	return nil
+}
+
+func (s *fakeStorage) Exists(_ context.Context, _ string) (bool, error) {
+	return true, nil
+}
+
+type fakeVerifier struct{}
+
+func (v *fakeVerifier) VerifyPlugin(_ context.Context, _ *ent.PluginVersion, _ io.Reader) error {
+	return nil
 }

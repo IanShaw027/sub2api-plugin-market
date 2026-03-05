@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -150,8 +151,7 @@ func TestGetPluginDetail_NotFound(t *testing.T) {
 
 	w := tc.PerformRequest("GET", "/api/v1/plugins/non-existent")
 
-	// API 返回 200 但 code 字段非 0 表示错误
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
@@ -177,7 +177,7 @@ func TestGetPluginDetail_Suspended(t *testing.T) {
 	require.NoError(t, err)
 
 	w := tc.PerformRequest("GET", "/api/v1/plugins/suspended-plugin")
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 
 	var response map[string]interface{}
 	err = json.Unmarshal(w.Body.Bytes(), &response)
@@ -237,8 +237,7 @@ func TestGetPluginVersions_NotFound(t *testing.T) {
 
 	w := tc.PerformRequest("GET", "/api/v1/plugins/non-existent/versions")
 
-	// API 返回 200 但 code 字段非 0 表示错误
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
@@ -266,12 +265,56 @@ func TestGetPluginVersions_Suspended(t *testing.T) {
 	tc.CreateTestPluginVersion(t, pluginEntity.ID, "1.0.0")
 
 	w := tc.PerformRequest("GET", "/api/v1/plugins/suspended-plugin/versions")
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 
 	var response map[string]interface{}
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.NotEqual(t, float64(0), response["code"])
+}
+
+// TestDownloadPlugin_Redirect 测试下载接口返回 302 重定向
+func TestDownloadPlugin_Redirect(t *testing.T) {
+	tc := SetupTestContext(t)
+	defer tc.Cleanup()
+
+	pluginEntity := tc.CreateTestPlugin(t, "download-plugin", "analytics", true)
+	tc.CreateTestPluginVersion(t, pluginEntity.ID, "1.0.0")
+
+	w := tc.PerformRequest("GET", "/api/v1/plugins/download-plugin/versions/1.0.0/download")
+
+	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, "https://example.com/download/test/path/1.0.0", w.Header().Get("Location"))
+
+	updatedPlugin, err := tc.Client.Plugin.Get(context.Background(), pluginEntity.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, updatedPlugin.DownloadCount)
+
+	logCount, err := tc.Client.DownloadLog.Query().
+		Where(
+			downloadlog.PluginIDEQ(pluginEntity.ID),
+			downloadlog.VersionEQ("1.0.0"),
+			downloadlog.SuccessEQ(true),
+		).
+		Count(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, logCount)
+}
+
+// TestDownloadPlugin_NotFound 测试下载不存在插件版本返回 404
+func TestDownloadPlugin_NotFound(t *testing.T) {
+	tc := SetupTestContext(t)
+	defer tc.Cleanup()
+
+	w := tc.PerformRequest("GET", "/api/v1/plugins/non-existent/versions/1.0.0/download")
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Empty(t, w.Header().Get("Location"))
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, float64(1002), response["code"])
 }
 
 // TestListTrustKeys_Empty 测试空信任密钥列表
@@ -386,8 +429,7 @@ func TestGetTrustKeyDetail_NotFound(t *testing.T) {
 
 	w := tc.PerformRequest("GET", "/api/v1/trust-keys/non-existent")
 
-	// API 返回 200 但 code 字段非 0 表示错误
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)

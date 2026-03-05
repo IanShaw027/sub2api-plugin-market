@@ -11,26 +11,31 @@ import (
 	"strings"
 	"time"
 
-	"github.com/IanShaw027/sub2api-storage"
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/repository"
+	"github.com/IanShaw027/sub2api-storage"
 )
 
 var (
-	ErrPluginVersionNotFound   = errors.New("plugin version not found")
+	ErrPluginVersionNotFound    = errors.New("plugin version not found")
 	ErrPluginVerificationFailed = errors.New("plugin verification failed")
 )
+
+// PluginVerifier 定义插件校验能力，便于测试替换实现。
+type PluginVerifier interface {
+	VerifyPlugin(ctx context.Context, pv *ent.PluginVersion, wasmData io.Reader) error
+}
 
 // DownloadService 下载业务逻辑层
 type DownloadService struct {
 	pluginRepo *repository.PluginRepository
 	storage    storage.Storage
 	client     *ent.Client
-	verifier   *VerificationService
+	verifier   PluginVerifier
 }
 
 // NewDownloadService 创建下载服务
-func NewDownloadService(pluginRepo *repository.PluginRepository, storage storage.Storage, client *ent.Client, verifier *VerificationService) *DownloadService {
+func NewDownloadService(pluginRepo *repository.PluginRepository, storage storage.Storage, client *ent.Client, verifier PluginVerifier) *DownloadService {
 	return &DownloadService{
 		pluginRepo: pluginRepo,
 		storage:    storage,

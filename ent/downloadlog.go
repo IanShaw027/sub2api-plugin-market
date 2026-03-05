@@ -9,9 +9,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/google/uuid"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/google/uuid"
 )
 
 // DownloadLog is the model entity for the DownloadLog schema.

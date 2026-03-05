@@ -10,11 +10,11 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/google/uuid"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/google/uuid"
 )
 
 // PluginCreate is the builder for creating a Plugin entity.

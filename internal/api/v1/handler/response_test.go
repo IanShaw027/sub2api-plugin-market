@@ -40,7 +40,7 @@ func TestResponseError(t *testing.T) {
 
 	Error(c, ErrCodeInvalidParam, "参数错误")
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	var resp Response
 	err := json.Unmarshal(w.Body.Bytes(), &resp)

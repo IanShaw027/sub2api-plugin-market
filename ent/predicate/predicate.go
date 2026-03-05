@@ -6,6 +6,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// AdminUser is the predicate function for adminuser builders.
+type AdminUser func(*sql.Selector)
+
 // DownloadLog is the predicate function for downloadlog builders.
 type DownloadLog func(*sql.Selector)
 

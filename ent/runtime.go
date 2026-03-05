@@ -5,19 +5,52 @@ package ent
 import (
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/adminuser"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/schema"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
+	"github.com/google/uuid"
 )
 
 // The init function reads all schema descriptors with runtime code
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	adminuserFields := schema.AdminUser{}.Fields()
+	_ = adminuserFields
+	// adminuserDescUsername is the schema descriptor for username field.
+	adminuserDescUsername := adminuserFields[1].Descriptor()
+	// adminuser.UsernameValidator is a validator for the "username" field. It is called by the builders before save.
+	adminuser.UsernameValidator = adminuserDescUsername.Validators[0].(func(string) error)
+	// adminuserDescEmail is the schema descriptor for email field.
+	adminuserDescEmail := adminuserFields[2].Descriptor()
+	// adminuser.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	adminuser.EmailValidator = adminuserDescEmail.Validators[0].(func(string) error)
+	// adminuserDescPasswordHash is the schema descriptor for password_hash field.
+	adminuserDescPasswordHash := adminuserFields[3].Descriptor()
+	// adminuser.PasswordHashValidator is a validator for the "password_hash" field. It is called by the builders before save.
+	adminuser.PasswordHashValidator = adminuserDescPasswordHash.Validators[0].(func(string) error)
+	// adminuserDescIsActive is the schema descriptor for is_active field.
+	adminuserDescIsActive := adminuserFields[5].Descriptor()
+	// adminuser.DefaultIsActive holds the default value on creation for the is_active field.
+	adminuser.DefaultIsActive = adminuserDescIsActive.Default.(bool)
+	// adminuserDescCreatedAt is the schema descriptor for created_at field.
+	adminuserDescCreatedAt := adminuserFields[7].Descriptor()
+	// adminuser.DefaultCreatedAt holds the default value on creation for the created_at field.
+	adminuser.DefaultCreatedAt = adminuserDescCreatedAt.Default.(func() time.Time)
+	// adminuserDescUpdatedAt is the schema descriptor for updated_at field.
+	adminuserDescUpdatedAt := adminuserFields[8].Descriptor()
+	// adminuser.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	adminuser.DefaultUpdatedAt = adminuserDescUpdatedAt.Default.(func() time.Time)
+	// adminuser.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	adminuser.UpdateDefaultUpdatedAt = adminuserDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// adminuserDescID is the schema descriptor for id field.
+	adminuserDescID := adminuserFields[0].Descriptor()
+	// adminuser.DefaultID holds the default value on creation for the id field.
+	adminuser.DefaultID = adminuserDescID.Default.(func() uuid.UUID)
 	downloadlogFields := schema.DownloadLog{}.Fields()
 	_ = downloadlogFields
 	// downloadlogDescVersion is the schema descriptor for version field.

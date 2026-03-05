@@ -9,10 +9,10 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/google/uuid"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/google/uuid"
 )
 
 // Submission is the model entity for the Submission schema.

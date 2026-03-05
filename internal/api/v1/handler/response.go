@@ -24,7 +24,7 @@ func Success(c *gin.Context, data interface{}) {
 
 // Error 错误响应
 func Error(c *gin.Context, code int, message string) {
-	c.JSON(http.StatusOK, Response{
+	c.JSON(httpStatusByCode(code), Response{
 		Code:    code,
 		Message: message,
 	})
@@ -46,3 +46,17 @@ const (
 	ErrCodeDatabaseError  = 1004
 	ErrCodeStorageError   = 1005
 )
+
+// httpStatusByCode 根据业务错误码映射 HTTP 状态码
+func httpStatusByCode(code int) int {
+	switch code {
+	case ErrCodeInvalidParam:
+		return http.StatusBadRequest
+	case ErrCodeNotFound:
+		return http.StatusNotFound
+	case ErrCodeInternalError, ErrCodeDatabaseError, ErrCodeStorageError:
+		return http.StatusInternalServerError
+	default:
+		return http.StatusBadRequest
+	}
+}

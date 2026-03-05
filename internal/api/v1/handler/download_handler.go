@@ -2,9 +2,10 @@ package handler
 
 import (
 	"errors"
+	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/service"
+	"github.com/gin-gonic/gin"
 )
 
 // DownloadHandler 下载处理器
@@ -44,20 +45,6 @@ func (h *DownloadHandler) DownloadPlugin(c *gin.Context) {
 		return
 	}
 
-	// TODO: 可以选择直接返回文件流或重定向到预签名 URL
-	// 方案 1: 重定向到预签名 URL
-	c.Redirect(302, url)
-
-	// 方案 2: 直接返回文件流
-	// pv, reader, err := h.downloadService.DownloadPlugin(c.Request.Context(), name, version)
-	// if err != nil {
-	//     Error(c, ErrCodeNotFound, "插件版本不存在")
-	//     return
-	// }
-	// defer reader.Close()
-	//
-	// c.Header("Content-Type", "application/wasm")
-	// c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-%s.wasm", name, version))
-	// c.Header("Content-Length", strconv.Itoa(pv.FileSize))
-	// io.Copy(c.Writer, reader)
+	// 下载策略定版：统一返回 302 跳转到预签名 URL，由对象存储负责文件传输。
+	c.Redirect(http.StatusFound, url)
 }

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/adminuser"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
@@ -77,6 +78,7 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
+			adminuser.Table:     adminuser.ValidColumn,
 			downloadlog.Table:   downloadlog.ValidColumn,
 			plugin.Table:        plugin.ValidColumn,
 			pluginversion.Table: pluginversion.ValidColumn,

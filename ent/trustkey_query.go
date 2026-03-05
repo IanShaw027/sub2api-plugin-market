@@ -11,9 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/google/uuid"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
+	"github.com/google/uuid"
 )
 
 // TrustKeyQuery is the builder for querying TrustKey entities.

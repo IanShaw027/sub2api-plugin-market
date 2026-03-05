@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/google/uuid"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/google/uuid"
 )
 
 // Plugin is the model entity for the Plugin schema.

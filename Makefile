@@ -1,4 +1,5 @@
-.PHONY: help run build test check-contract clean docker-up docker-down migrate migrate-up migrate-down install-tools
+.PHONY: help run build test check-contract clean docker-up docker-down migrate migrate-up migrate-down install-tools \
+	audit-archive-dry-run audit-restore-dry-run audit-restore-validate audit-restore-query-sample audit-dry-run
 
 help: ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -57,3 +58,25 @@ deps: ## 安装依赖
 
 generate: ## 生成 Ent 代码
 	go generate ./ent
+
+audit-archive-dry-run: ## 审计归档脚本 dry-run（默认 DRY_RUN=1）
+	DRY_RUN=$${DRY_RUN:-1} ./scripts/archive-audit-logs.sh
+
+audit-restore-dry-run: ## 审计恢复脚本 dry-run（默认 sample + DRY_RUN=1）
+	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} DRY_RUN=$${DRY_RUN:-1} ./scripts/restore-audit-logs.sh
+
+audit-restore-validate: ## 校验恢复结果（默认 /tmp/restored-audit-logs.jsonl）
+	RESTORED_FILE=$${RESTORED_FILE:-/tmp/restored-audit-logs.jsonl} EXPECTED_SHA256=$${EXPECTED_SHA256:-} ./scripts/validate-restored-audit-logs.sh
+
+audit-restore-query-sample: ## 对 sample 执行分页过滤查询示例
+	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} PAGE=$${PAGE:-1} PAGE_SIZE=$${PAGE_SIZE:-2} ACTION=$${ACTION:-plugin.download} ./scripts/query-restored-audit-logs.sh
+
+audit-dry-run: ## 串行执行审计 dry-run（archive/restore/query/validate）
+	DRY_RUN=1 ./scripts/archive-audit-logs.sh
+	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} DRY_RUN=1 ./scripts/restore-audit-logs.sh --output /tmp/restored-audit-logs.jsonl
+	INPUT_FILE=$${INPUT_FILE:-./scripts/restore-audit-logs-sample.jsonl} PAGE=$${PAGE:-1} PAGE_SIZE=$${PAGE_SIZE:-2} ACTION=$${ACTION:-plugin.download} ./scripts/query-restored-audit-logs.sh
+	@if [ -f "$${RESTORED_FILE:-/tmp/restored-audit-logs.jsonl}" ]; then \
+		RESTORED_FILE=$${RESTORED_FILE:-/tmp/restored-audit-logs.jsonl} EXPECTED_SHA256=$${EXPECTED_SHA256:-} ./scripts/validate-restored-audit-logs.sh; \
+	else \
+		echo "[audit-dry-run] skip validate: restored file not found ($${RESTORED_FILE:-/tmp/restored-audit-logs.jsonl})"; \
+	fi

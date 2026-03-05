@@ -1,0 +1,59 @@
+name: Plugin Market Nightly
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      check_audit_restore_validate:
+        description: 'Enable optional audit restore validation dry-run'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  nightly-smoke:
+    name: Nightly Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate OpenAPI and error-code contract
+        run: ./scripts/validate_contract.sh
+
+  audit-restore-validate:
+    name: Audit Restore Validate (Optional)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || inputs.check_audit_restore_validate == 'true' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare dedup target keys fixture
+        run: |
+          cat <<'EOF' > /tmp/restore-target-keys.txt
+          evt-1002
+          EOF
+
+      - name: Run restore dry-run with dedup statistics
+        env:
+          INPUT_FILE: ./scripts/restore-audit-logs-sample.jsonl
+          INPUT_FORMAT: jsonl
+          DEDUP_MODE: both
+          TARGET_KEYS_FILE: /tmp/restore-target-keys.txt
+          DRY_RUN: '1'
+          OUTPUT_FILE: /tmp/restored-audit-logs.jsonl
+        run: ./scripts/restore-audit-logs.sh
+
+      - name: Validate restored snapshot with EXPECTED_SHA256
+        env:
+          RESTORED_FILE: /tmp/restored-audit-logs.jsonl
+          EXPECTED_SHA256: 135a5d360bc05f5401d116b1ece8126717e62f99c0a5e18eeac4b59405c9970d
+          COMPARE_SOURCE: '0'
+        run: ./scripts/validate-restored-audit-logs.sh

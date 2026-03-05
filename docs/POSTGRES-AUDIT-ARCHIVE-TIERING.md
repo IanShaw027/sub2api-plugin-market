@@ -25,7 +25,7 @@
 
 ## 3. 当前可执行实现
 
-归档脚本：`deploy/plugin-market/archive-audit-logs.sh`
+归档脚本：`scripts/archive-audit-logs.sh`
 
 支持参数：
 - `ARCHIVE_MODE=move|copy|purge`
@@ -47,7 +47,7 @@ EXPORT_FORMAT=csv \
 COLD_STORAGE_MODE=local_and_s3 \
 S3_URI="s3://your-bucket/sub2api/plugin-market-audit" \
 DRY_RUN=0 \
-./deploy/plugin-market/archive-audit-logs.sh
+./scripts/archive-audit-logs.sh
 ```
 
 ## 4. 运维编排建议

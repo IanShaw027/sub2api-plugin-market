@@ -40,13 +40,16 @@
 35. ✅ release-checklist 接入恢复结果校验可选 gate（`CHECK_AUDIT_RESTORE_VALIDATE=1`）
 36. ✅ 恢复脚本增强：按时间窗口回放 + 重复导入保护（`DEDUP_MODE`）
 37. ✅ pre-release 增加恢复校验 gate 可选输入（`check_audit_restore_validate`）
+38. ✅ 固定样本恢复校验接线（`EXPECTED_SHA256`，`scripts/restore-audit-logs-sample.jsonl`）
+39. ✅ nightly 接入恢复校验可选步骤（`.github/workflows/plugin-market-nightly.yml`）
+40. ✅ 恢复回放去重统计增强（`restore-audit-logs.sh` 区分 `DUPLICATE_TARGET`/`DUPLICATE_BATCH`）
 
 ## 进行中
 
-1. 🔄 固定样本恢复校验（`EXPECTED_SHA256`）接线
+- （无）
 
 ## 下一步（建议按顺序）
 
-1. 为恢复校验增加固定样本快照对比（`EXPECTED_SHA256`）
-2. 将恢复校验可选步骤接入 nightly workflow
-3. 增加恢复回放去重统计（重复来源：目标表/输入批次）
+1. 结合生产恢复样本扩展固定快照集（按归档批次维护 EXPECTED_SHA256 清单）
+2. 在 nightly 增加 CSV 输入样本覆盖（当前仅 JSONL）
+3. 将去重统计接入告警阈值（如重复率异常波动）

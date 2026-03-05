@@ -26,6 +26,8 @@
 ## 3. 当前可执行实现
 
 归档脚本：`scripts/archive-audit-logs.sh`
+恢复脚本：`scripts/restore-audit-logs.sh`
+恢复结果查询脚本：`scripts/query-restored-audit-logs.sh`
 
 支持参数：
 - `PG_DSN`（非 dry-run 时必填）
@@ -76,4 +78,4 @@ DRY_RUN=0 \
 1. PostgreSQL 分区表策略（按月分区）
 2. 冷层元数据清单（归档批次、行数、哈希）
 3. 对象存储生命周期策略（自动转冷/归档存储）
-4. 恢复脚本（从冷层回放到临时审计表）
+4. 恢复查询与校验增强（多样本快照、统计告警阈值）

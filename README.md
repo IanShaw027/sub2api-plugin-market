@@ -17,11 +17,12 @@ Sub2API 插件市场服务 - 提供插件浏览、下载、签名验证功能。
 - **安全审核**：WASM 插件安全检查、签名验证
 - **存储服务**：MinIO 对象存储集成
 - **API 服务**：RESTful API，支持插件查询、下载
+- **管理后台**：插件审核、用户管理、统计报表
 - **数据库**：PostgreSQL + Ent ORM
 
 ## 技术栈
 
-- **语言**：Go 1.21+
+- **语言**：Go 1.25+
 - **Web 框架**：Gin
 - **ORM**：Ent
 - **数据库**：PostgreSQL 15+
@@ -32,42 +33,94 @@ Sub2API 插件市场服务 - 提供插件浏览、下载、签名验证功能。
 
 ### 前置要求
 
-- Go 1.21+
+- Go 1.25+
 - Docker & Docker Compose
 - Make
 
 ### 本地开发
 
 ```bash
-# 启动依赖服务（PostgreSQL + MinIO）
-make docker-up
+# 1. 准备环境变量
+cp .env.example .env
 
-# 运行数据库迁移
-make migrate
+# 2. 启动依赖服务（PostgreSQL + MinIO）
+docker-compose up -d
 
-# 启动服务
-make run
+# 3. 初始化管理员账号
+go run scripts/init_admin.go
 
-# 运行测试
-make test
+# 4. 启动服务
+go run cmd/server/main.go
+
+# 5. 访问服务
+# - API: http://localhost:8081/api/v1
+# - 管理后台: http://localhost:8081/admin/login
+# - 健康检查: http://localhost:8081/health
+# - 健康检查响应: {"status":"ok"}
+```
+
+默认管理员账号：
+- 用户名：`admin`
+- 密码：`admin123`
+
+### 测试
+
+```bash
+# 运行单元测试
+go test ./...
+
+# 测试管理后台
+./scripts/test_admin.sh
 ```
 
 ### 环境变量
 
-创建 `.env` 文件：
+推荐基于 `.env.example`：
+
+```bash
+cp .env.example .env
+```
+
+关键变量说明（服务端实际读取）：
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/plugin_market?sslmode=disable
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=plugins
-SERVER_PORT=8080
+PORT=8081
+DB_HOST=localhost
+DB_PORT=5433
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=plugin_market
+DB_SSLMODE=disable
+
+STORAGE_TYPE=minio
+STORAGE_MINIO_ENDPOINT=localhost:9000
+STORAGE_MINIO_ACCESS_KEY=minioadmin
+STORAGE_MINIO_SECRET_KEY=minioadmin
+STORAGE_MINIO_BUCKET=plugin-market
+STORAGE_MINIO_USE_SSL=false
+
+ADMIN_JWT_SECRET=YOUR_TOKEN_HERE
 ```
 
 ## API 文档
 
-服务启动后访问：`http://localhost:8081/swagger/index.html`
+### 公开 API
+
+- `GET /api/v1/plugins` - 获取插件列表
+- `GET /api/v1/plugins/:name` - 获取插件详情
+- `GET /api/v1/plugins/:name/versions` - 获取插件版本列表
+- `GET /api/v1/plugins/:name/versions/:version/download` - 返回 302 并跳转到预签名下载 URL
+- `GET /api/v1/trust-keys` - 获取信任密钥列表
+
+### 管理后台 API
+
+- `POST /admin/api/auth/login` - 管理员登录
+- `GET /admin/api/auth/me` - 获取当前用户信息
+- `GET /admin/api/submissions` - 获取提交列表
+- `PUT /admin/api/submissions/:id/review` - 审核提交
+- `GET /admin/api/submissions/stats` - 获取审核统计
+
+详细文档：[管理后台使用指南](./docs/ADMIN_GUIDE.md)
 
 ## 项目结构
 
@@ -75,15 +128,28 @@ SERVER_PORT=8080
 sub2api-plugin-market/
 ├── cmd/server/          # 应用入口
 ├── internal/
-│   ├── api/v1/         # API 路由和处理器
+│   ├── api/v1/         # 公开 API 路由和处理器
+│   ├── admin/          # 管理后台
+│   │   ├── handler/    # 管理后台处理器
+│   │   ├── service/    # 管理后台服务
+│   │   └── middleware/ # 认证中间件
+│   ├── auth/           # JWT 认证服务
 │   ├── service/        # 业务逻辑层
 │   ├── repository/     # 数据访问层
-│   ├── storage/        # MinIO 存储服务
-│   ├── checker/        # WASM 安全检查器
 │   └── model/          # 数据模型
 ├── ent/schema/         # Ent schema 定义
-├── config/             # 配置文件
-├── migrations/         # 数据库迁移文件
+│   ├── admin_user.go   # 管理员用户表
+│   ├── plugin.go       # 插件表
+│   ├── submission.go   # 提交审核表
+│   └── ...
+├── web/admin/          # 管理后台前端
+│   ├── login.html      # 登录页面
+│   └── index.html      # 审核管理页面
+├── scripts/            # 工具脚本
+│   ├── init_admin.go   # 初始化管理员
+│   └── test_admin.sh   # 测试脚本
+├── docs/               # 文档
+│   └── ADMIN_GUIDE.md  # 管理后台使用指南
 └── docker-compose.yml  # Docker 编排配置
 ```
 

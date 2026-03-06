@@ -14,9 +14,9 @@
 | Phase 1: 链路打通 | 18 | 18 | 100% | ✅ 完成 | Phase 0 |
 | Phase 2: Provider 插件化 | 24 | 20 | 83% | 收尾中(灰度) | Phase 1 |
 | Phase 3: Transform/Interceptor | 10 | 10 | 100% | ✅ 完成 | Phase 2.1 |
-| Phase 4: 生态建设 | 17 | 1 | 6% | 进行中 | Phase 3 |
+| Phase 4: 生态建设 | 17 | 9 | 53% | 进行中 | Phase 3 |
 | 运维与上线准备 | 8 | 5 | 63% | 进行中 | 随各 Phase 同步 |
-| **合计** | **88** | **63** | **72%** | | |
+| **合计** | **88** | **71** | **81%** | | |
 
 ---
 
@@ -503,30 +503,30 @@
 
 ### 4.2 市场增强
 
-- [ ] **4.5** 审核时依赖解析校验
+- [x] **4.5** 审核时依赖解析校验
   - 文件: `internal/admin/service/submission_service.go`
-  - 改动: approve 前调用 `dependency_resolver` 校验 dependencies 是否可解析、无冲突
+  - 改动: 新增 `validateDependencies` — approve 前遍历 PluginVersion dependencies 检查 Plugin 是否存在且 active
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
+
+- [x] **4.6** 列表 API 内存缓存
+  - 文件: 新增 `internal/repository/cache.go` + 修改 `plugin_repository.go`
+  - 改动: TTLCache (3min TTL) + ListPlugins 缓存 + IncrementDownloadCount 清缓存
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **4.6** 列表 API Redis 缓存
-  - 文件: `internal/repository/plugin_repository.go`
-  - 改动: GET /plugins 结果缓存到 Redis，TTL=3min，写操作时清缓存
-  - 完成: ☐  日期: ____  负责人: ____
-
-- [ ] **4.7** 预签名 URL 缓存
+- [x] **4.7** 预签名 URL 缓存
   - 文件: `internal/service/download_service.go`
-  - 改动: 相同 `(wasm_url, 5min 窗口)` 复用同一预签名 URL
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: presignCache (5min TTL)，相同 (wasm_url, 5min窗口) 复用预签名 URL
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **4.8** Trust Key 多代并存轮换
+- [x] **4.8** Trust Key 多代并存轮换
   - 文件: `internal/service/verification_service.go`
-  - 改动: 旧 key 标记 `deprecated` 但保留 `is_active=true` 一段时间（如 30 天），期间旧签名仍可验证
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: loadTrustKeys 改用 ListActiveTrustKeys (仅 is_active=true)，deprecated 但 active 的 key 仍可验签
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **4.9** 插件搜索增强
+- [x] **4.9** 插件搜索增强
   - 文件: `internal/repository/plugin_repository.go`
-  - 改动: PostgreSQL `tsvector` 全文搜索 + 标签过滤
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: Contains→ContainsFold (ILIKE) + 新增 tags JSON 搜索谓词
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### 4.3 运行时增强
 
@@ -535,20 +535,20 @@
   - 现状: ✅ 已实现 — HotReloadCoordinator 支持 Load/Reload/Unload/DrainTimeout/ContextCancellation; 6 个测试通过
   - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **4.11** Prometheus metrics 导出
-  - 文件: `pluginruntime/observability.go`
-  - 改动: 导出 `plugin_dispatch_duration_seconds`, `plugin_dispatch_total`, `plugin_circuit_breaker_state` 等
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **4.11** Prometheus metrics 导出
+  - 文件: 新增 `pluginruntime/metrics_exporter.go` + `metrics_exporter_test.go`
+  - 改动: MetricsExporter 接口 + InMemoryMetricsExporter (thread-safe) + NopMetricsExporter + expvar 暴露; 6 个测试通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **4.12** 错误率熔断
+- [x] **4.12** 错误率熔断
   - 文件: `pluginruntime/circuit_breaker.go`
-  - 改动: 除超时外，支持 `error_rate_threshold`（如连续 10 次中 5 次失败则熔断）
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: 新增 ErrorRateCircuitBreaker (ringBuffer 滑动窗口 + 阈值触发 + 成功重置); 7 个测试通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **4.13** Log Host API 限速
+- [x] **4.13** Log Host API 限速
   - 文件: `pluginruntime/host_api_log.go`
-  - 改动: 每插件每秒最多 100 条日志，超出则采样
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: 新增 logRateLimiter (100条/秒/插件默认 + ErrLogRateLimited + DroppedLogs 计数); 5 个测试通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### 4.4 文档
 

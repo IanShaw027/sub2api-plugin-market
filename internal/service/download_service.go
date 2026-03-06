@@ -17,6 +17,8 @@ import (
 	"github.com/IanShaw027/sub2api-storage"
 )
 
+const presignedURLTTL = 5 * time.Minute
+
 var (
 	ErrPluginVersionNotFound    = errors.New("plugin version not found")
 	ErrPluginVerificationFailed = errors.New("plugin verification failed")
@@ -29,19 +31,21 @@ type PluginVerifier interface {
 
 // DownloadService 下载业务逻辑层
 type DownloadService struct {
-	pluginRepo *repository.PluginRepository
-	storage    storage.Storage
-	client     *ent.Client
-	verifier   PluginVerifier
+	pluginRepo    *repository.PluginRepository
+	storage       storage.Storage
+	client        *ent.Client
+	verifier      PluginVerifier
+	presignCache  *repository.TTLCache
 }
 
 // NewDownloadService 创建下载服务
 func NewDownloadService(pluginRepo *repository.PluginRepository, storage storage.Storage, client *ent.Client, verifier PluginVerifier) *DownloadService {
 	return &DownloadService{
-		pluginRepo: pluginRepo,
-		storage:    storage,
-		client:     client,
-		verifier:   verifier,
+		pluginRepo:   pluginRepo,
+		storage:      storage,
+		client:       client,
+		verifier:     verifier,
+		presignCache: repository.NewTTLCache(presignedURLTTL),
 	}
 }
 
@@ -115,11 +119,18 @@ func (s *DownloadService) GetDownloadURL(ctx context.Context, pluginName, versio
 		return "", err
 	}
 
-	// 生成预签名 URL
+	// Reuse pre-signed URL within the same TTL window
+	cacheKey := fmt.Sprintf("presign:%s:%d", pv.WasmURL, time.Now().Unix()/int64(presignedURLTTL.Seconds()))
+	if cached, ok := s.presignCache.Get(cacheKey); ok {
+		return cached.(string), nil
+	}
+
 	url, err := s.storage.GetPresignedURL(ctx, pv.WasmURL, 15*time.Minute)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned url: %w", err)
 	}
+
+	s.presignCache.Set(cacheKey, url)
 
 	// 记录下载日志
 	if err := s.recordDownloadLog(ctx, pv, clientIP, userAgent, true, ""); err != nil {

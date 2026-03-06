@@ -24,10 +24,13 @@ type VerificationService struct {
 	hostAPIVersion  string
 }
 
-// loadTrustKeys 从数据库加载信任密钥并构建 TrustStore
+// loadTrustKeys loads all is_active=true trust keys into a TrustStore.
+// This supports multi-generation key coexistence: older keys can be marked
+// deprecated externally while keeping is_active=true for a grace period,
+// allowing signatures made with those keys to still verify.
 func (s *VerificationService) loadTrustKeys(ctx context.Context) (*pluginsign.TrustStore, error) {
 	store := pluginsign.NewTrustStore()
-	keys, err := s.trustKeyRepo.ListTrustKeys(ctx, "", nil)
+	keys, err := s.trustKeyRepo.ListActiveTrustKeys(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load trust keys: %w", err)
 	}
@@ -40,9 +43,6 @@ func (s *VerificationService) loadTrustKeys(ctx context.Context) (*pluginsign.Tr
 		if err := store.AddTrustedKey(key.KeyID, pubKey); err != nil {
 			slog.Warn("failed to add trusted key", "key_id", key.KeyID, "error", err)
 			continue
-		}
-		if !key.IsActive {
-			store.RevokeKey(key.KeyID)
 		}
 	}
 	return store, nil

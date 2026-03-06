@@ -47,6 +47,10 @@ func (h *SubmissionHandler) CreateSubmission(c *gin.Context) {
 
 	resp, err := h.submissionService.CreateSubmission(c.Request.Context(), svcReq)
 	if err != nil {
+		if errors.Is(err, service.ErrPendingLimitExceeded) {
+			Error(c, ErrCodePendingLimitExceeded, err.Error())
+			return
+		}
 		if errors.Is(err, service.ErrInvalidSubmissionRequest) {
 			Error(c, ErrCodeInvalidParam, err.Error())
 			return

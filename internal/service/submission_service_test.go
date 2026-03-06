@@ -199,7 +199,7 @@ func TestSubmissionService_CreateSubmission_PendingLimit(t *testing.T) {
 	req.PluginName = "limit-test-plugin"
 	_, err := svc.CreateSubmission(ctx, req)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrInvalidSubmissionRequest)
+	assert.ErrorIs(t, err, ErrPendingLimitExceeded)
 	assert.Contains(t, err.Error(), "待审核提交")
 }
 

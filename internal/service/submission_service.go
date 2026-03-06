@@ -23,6 +23,9 @@ import (
 // ErrInvalidSubmissionRequest 提交请求参数错误
 var ErrInvalidSubmissionRequest = errors.New("invalid submission request")
 
+// ErrPendingLimitExceeded 同一插件待审核提交数量超限
+var ErrPendingLimitExceeded = errors.New("pending submission limit exceeded")
+
 // pluginNameRegex 插件名只允许小写字母、数字和连字符，首尾必须是字母或数字，长度 2-64
 var pluginNameRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$`)
 
@@ -237,7 +240,7 @@ func (s *SubmissionService) createSubmissionWithWASM(ctx context.Context, req *C
 		return nil, err
 	}
 	if pendingCount >= 3 {
-		return nil, fmt.Errorf("%w: 该插件已有 %d 个待审核提交，请等待审核完成后再提交", ErrInvalidSubmissionRequest, pendingCount)
+		return nil, fmt.Errorf("%w: 该插件已有 %d 个待审核提交，请等待审核完成后再提交", ErrPendingLimitExceeded, pendingCount)
 	}
 
 	// 上传 WASM 到 storage
@@ -387,7 +390,7 @@ func (s *SubmissionService) createSubmissionMetadataOnly(ctx context.Context, re
 		return nil, err
 	}
 	if pendingCount >= 3 {
-		return nil, fmt.Errorf("%w: 该插件已有 %d 个待审核提交，请等待审核完成后再提交", ErrInvalidSubmissionRequest, pendingCount)
+		return nil, fmt.Errorf("%w: 该插件已有 %d 个待审核提交，请等待审核完成后再提交", ErrPendingLimitExceeded, pendingCount)
 	}
 
 	createSubmissionBuilder := s.client.Submission.Create().

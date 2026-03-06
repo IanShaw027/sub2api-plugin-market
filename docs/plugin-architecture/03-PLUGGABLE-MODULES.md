@@ -111,7 +111,7 @@
 - 核心提供：Account、Token、目标格式（通过 `ProviderContext`）
 - 插件负责：请求构建（AI Studio vs Code Assist URL）、响应解析
 - 流式场景：Host 编排，插件提供 `OnSSELine()` 做 Gemini→Claude SSE 转换
-- 核心保留：Token 获取、HandleGeminiUpstreamError、HandleTempUnschedulable、failover
+- 核心保留：Token 获取、`mapGeminiErrorBodyToClaudeError`（错误映射）、`HandleTempUnschedulable`、failover
 
 ---
 
@@ -161,7 +161,7 @@
 | 属性 | 值 |
 |------|-----|
 | **插件类型** | `TransformPlugin` |
-| **当前代码** | `pkg/antigravity/request_transformer.go` + `response_transformer.go` + `stream_transformer.go` + `schema_cleaner.go` |
+| **当前代码** | `pkg/antigravity/request_transformer.go` + `response_transformer.go` + `stream_transformer.go` + `schema_cleaner.go` + `gemini_types.go` + `claude_types.go`（`client.go` 和 `oauth.go` 属核心，不提取） |
 | **核心逻辑** | Claude ↔ Gemini 转换（Antigravity 特化版本），流式 SSE 转换 |
 | **外部依赖** | 无 |
 | **需要的 Host API** | 无 |
@@ -182,8 +182,8 @@
 | 属性 | 值 |
 |------|-----|
 | **插件类型** | `TransformPlugin` |
-| **当前代码** | `service/openai_tool_corrector.go` + `openai_tool_continuation.go` |
-| **核心逻辑** | Codex CLI 工具名矫正 (`apply_patch` → `edit`)、工具续传处理 |
+| **当前代码** | `service/openai_tool_corrector.go`（工具续传逻辑在 `openai_ws_forwarder.go` 中） |
+| **核心逻辑** | Codex CLI 工具名矫正 (`apply_patch` → `edit` 等 9 个映射)、参数递归矫正 |
 | **外部依赖** | 无 |
 | **需要的 Host API** | 无 |
 | **抽取难度** | 低 — 纯数据转换 |
@@ -205,8 +205,8 @@
 
 **散落位置**：
 - `pkg/claude/constants.go` → `NormalizeModelID()`, `DenormalizeModelID()`
-- `service/openai_gateway_service.go` → `normalizeCodexModel()`
-- `service/antigravity_gateway_service.go` → `antigravitySupportedModels`, `antigravityPrefixMapping`
+- `service/openai_codex_transform.go` → `normalizeCodexModel()`
+- `pkg/antigravity/claude_types.go` → `DefaultModels()` + 模型映射逻辑
 - `pkg/gemini/models.go` → `DefaultModels()`, `FallbackModelsList()`
 
 ---
@@ -245,7 +245,7 @@
 |------|-----|
 | **插件类型** | `InterceptorPlugin` (或 `TransformPlugin`) |
 | **当前代码** | `service/gemini_native_signature_cleaner.go` |
-| **核心逻辑** | 清理 Gemini native 请求中的 thoughtSignature 字段 |
+| **核心逻辑** | 将 Gemini native 请求中的 `thoughtSignature` 替换为 dummy 签名（防止跨账户 sticky session 验证错误） |
 | **外部依赖** | 无 |
 | **需要的 Host API** | 无 |
 | **抽取难度** | 低 — 纯数据清洗 |

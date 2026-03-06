@@ -6,7 +6,7 @@
 
 ## 1. 背景
 
-Sub2API 是一个 AI API 网关，支持将 AI 订阅配额（Claude、OpenAI、Gemini、Antigravity 等）通过 API Key 分发。当前所有 Provider 的转发逻辑、协议转换、模型映射都硬编码在主项目中。
+Sub2API 是一个 AI API 网关，支持将 AI 订阅配额（Claude、OpenAI、Gemini、Antigravity、Sora 等）通过 API Key 分发。当前所有 Provider 的转发逻辑、协议转换、模型映射都硬编码在主项目中。
 
 本文档系列分析了哪些模块应保留在核心、哪些应插件化，以及插件市场设计的评审和改进建议。
 
@@ -36,6 +36,7 @@ Sub2API 是一个 AI API 网关，支持将 AI 订阅配额（Claude、OpenAI、
 │  Gemini Provider · Antigravity Provider          │
 │  Claude↔Gemini 转换 · 模型映射 · TLS 指纹         │
 │  Codex 工具矫正 · 错误映射 · 自定义拦截器          │
+│  (Sora 能力为独立 Handler，暂不纳入插件化范围)      │
 └─────────────────────────────────────────────────┘
 ```
 

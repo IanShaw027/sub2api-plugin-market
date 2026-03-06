@@ -90,7 +90,7 @@
 | API Key 服务 | `service/api_key_service.go` | Key CRUD + 校验 | 核心鉴权 |
 | Auth 缓存 | `service/api_key_auth_cache_impl.go` | L1 (Ristretto) + L2 (Redis) | 高频路径缓存 |
 | 分组服务 | `service/group_service.go` | 路由分组管理 | 调度依赖 |
-| 身份服务 | `service/identity_service.go` | 身份解析 | 认证链路 |
+| 身份服务 | `service/identity_service.go` | OAuth 账号身份指纹管理（GetOrCreateFingerprint / ApplyFingerprint / RewriteUserID） | 认证链路 |
 
 ## 7. 运维监控 (Ops)
 
@@ -117,6 +117,8 @@ Gateway 是计费、调度、限流、并发控制的交汇点，虽然 Provider
 | Gemini v1beta Handler | `handler/gemini_v1beta_handler.go` | Gemini 原生 API 入口 | 核心路由 |
 | OpenAI Handler | `handler/openai_gateway_handler.go` | OpenAI API 入口 | 核心路由 |
 | Plugin 控制面 Handler | `handler/plugin_control_plane_handler.go` | 插件安装/卸载/生命周期 | 核心管理 |
+| Sora Gateway Handler | `handler/sora_gateway_handler.go` | Sora 视频生成 API 入口 | 核心路由 |
+| Sora Client Handler | `handler/sora_client_handler.go` | Sora 客户端交互 | 核心路由 |
 
 ## 9. 管理后台
 
@@ -132,7 +134,11 @@ Gateway 是计费、调度、限流、并发控制的交汇点，虽然 Provider
 | 设置管理 | `handler/admin/setting_handler.go` | 系统设置 |
 | 公告管理 | `handler/admin/announcement_handler.go` | 公告管理 |
 | 用量管理 | `handler/admin/usage_handler.go` | 用量统计 |
-| Ops 管理 | `handler/admin/ops_*.go` (6+ 文件) | 运维面板 |
+| Ops 管理 | `handler/admin/ops_*.go` (8 文件) | 运维面板 |
+| API Key 管理 | `handler/admin/apikey_handler.go` | API Key CRUD |
+| 数据管理 | `handler/admin/data_management_handler.go` | 数据导入导出 |
+| 用量清理 | `handler/admin/usage_cleanup_handler.go` | 历史用量清理 |
+| 定时测试 | `handler/admin/scheduled_test_handler.go` | 定时测试任务 |
 | OAuth 管理 | `handler/admin/gemini_oauth_handler.go`, `handler/admin/openai_oauth_handler.go`, `handler/admin/antigravity_oauth_handler.go` | OAuth 配置 |
 | 促销管理 | `handler/admin/promo_handler.go` | 促销码 |
 | 兑换管理 | `handler/admin/redeem_handler.go` | 兑换码 |
@@ -156,7 +162,7 @@ Gateway 是计费、调度、限流、并发控制的交汇点，虽然 Provider
 | 仪表盘聚合 | `service/dashboard_aggregation_service.go` | 定时聚合 | 性能优化 |
 | CRS 同步 | `service/crs_sync_service.go` | 外部账号同步 | 账号管理 |
 | 时间轮 | `service/timing_wheel_service.go` | 定时任务调度 | 基础设施 |
-| 延迟初始化 | `service/deferred_service.go` | 懒加载服务 | 基础设施 |
+| 延迟批量更新 | `service/deferred_service.go` | 账号 `last_used` 批量延迟更新 | 基础设施 |
 | 代理服务 | `service/proxy_service.go` | 代理管理 | 网络基础设施 |
 
 ## 11. 基础设施层
@@ -172,6 +178,6 @@ Gateway 是计费、调度、限流、并发控制的交汇点，虽然 Provider
 | 存储 | `storage/` | 本地 / MinIO |
 | AES 加密 | `repository/aes_encryptor.go` | 敏感数据加密 |
 | 迁移 | `repository/migrations_runner.go` | 数据库迁移 |
-| DI | `service/wire.go`, `handler/wire.go` | Wire 依赖注入 |
+| DI | `service/wire.go`, `handler/wire.go`, `repository/wire.go`, `config/wire.go`, `server/middleware/wire.go`, `cmd/server/wire.go` | Wire 依赖注入 |
 | Setup | `setup/*.go` | 首次部署向导 |
 | 前端 | `web/` (internal 内嵌入), `frontend/` (项目根) | 嵌入式 Vue SPA |

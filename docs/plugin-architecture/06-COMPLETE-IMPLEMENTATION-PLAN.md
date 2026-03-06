@@ -1,6 +1,6 @@
 # 插件系统完整实施方案
 
-> **文档状态**: V1 — 可执行  
+> **文档状态**: V2 — 可执行（含源码交叉校验修正）  
 > **创建日期**: 2026-03-06  
 > **适用仓库**: sub2api (数据平面) + sub2api-plugin-market (控制平面)  
 > **前置文档**: 本方案基于 00~05 系列文档的全部发现制定
@@ -341,13 +341,53 @@ GitHub Sync 测试:
 |---|------|---------|---------|--------|
 | 2.1.1 | StreamWriter 扩展 | `pluginapi/types.go`, `pluginruntime/writer.go` | 新增 `Flush() error`, `SetStatus(code int)`, `Done() <-chan struct{}` | 中 |
 | 2.1.2 | ProviderPlugin 接口扩展 | `pluginapi/types.go` | 新增 `type StreamDelegate struct { URL, Method string; Headers map[string][]string }`, ProviderPlugin 增加 `PrepareStream(ctx, req) (*StreamDelegate, error)` 和 `OnSSELine(line []byte) ([]byte, error)`, `OnStreamEnd() (*ProviderResultMetadata, error)` | 中 |
-| 2.1.3 | ProviderContext 定义 | `pluginapi/types.go` | 定义 ProviderContext 结构体, 约定在 `GatewayRequest.Metadata["provider_context"]` 中传递 | 小 |
+| 2.1.3 | ProviderContext 定义 | `pluginapi/types.go` | 定义 ProviderContext 结构体（见下方 §2.1.3 详细字段表），约定在 `GatewayRequest.Metadata["provider_context"]` 中传递 | 中 |
 | 2.1.4 | ProviderResultMetadata 定义 | `pluginapi/types.go` | 定义 ProviderResultMetadata, 约定在 `GatewayResponse.Metadata["provider_result"]` 中回传 | 小 |
 | 2.1.5 | Host 流式 HTTP | `pluginruntime/host_api_http.go` | 新增 `DoStream(req HTTPRequest, onLine func([]byte) error) error`, 内部用 goroutine + bufio.Scanner 逐行读取 | 高 |
 | 2.1.6 | DispatchRuntime Provider 流式调度 | `pluginruntime/dispatch_runtime.go` | Provider 阶段: 1) 调用 PrepareStream 获取 StreamDelegate, 2) Host 发起流式 HTTP, 3) 每行回调 OnSSELine, 4) WriteChunk + Flush, 5) 流结束调用 OnStreamEnd 获取 Metadata | 高 |
 | 2.1.7 | keepalive + interval timeout | `pluginruntime/dispatch_runtime.go` | Host 流式管道中实现 keepalive Ticker 和上游数据间隔超时检测 | 中 |
-| 2.1.8 | 核心注入 ProviderContext | `handler/gateway_handler.go` | 选号后将 Account + Token + BaseURL + ProxyURL + MappedModel 等注入 `GatewayRequest.Metadata["provider_context"]` | 中 |
+| 2.1.8 | 核心注入 ProviderContext | `handler/gateway_handler.go` | 选号后将 §2.1.3 定义的全部字段注入 `GatewayRequest.Metadata["provider_context"]` | 中 |
 | 2.1.9 | 核心消费 ProviderResultMetadata | `handler/gateway_handler.go` | Provider 返回后从 `GatewayResponse.Metadata["provider_result"]` 提取 Usage/Model/Failover 等, 调用 rateLimitService / RecordUsage / Ops | 中 |
+
+##### §2.1.3 ProviderContext 完整字段定义
+
+> 源码交叉校验后，下表列出 Provider 插件所需的全部上下文字段。  
+> 来源: `gateway_handler.go` 选号→调用→计费全流程分析。
+
+| 字段 | 类型 | 说明 | 来源 (核心代码) |
+|------|------|------|----------------|
+| `AccountID` | `int` | 选中账号 ID | `selectAccount()` 返回 |
+| `Token` | `string` | 账号的访问令牌 | `accountService.GetToken(account)` |
+| `BaseURL` | `string` | 上游 API 基础 URL | `account.BaseURL` |
+| `ProxyURL` | `string` | 代理 URL（可空） | `account.ProxyURL` |
+| `OriginalModel` | `string` | 用户请求的原始模型名 | 请求解析阶段 |
+| `MappedModel` | `string` | 经模型映射后的实际模型名 | `modelMapper.Map()` |
+| `Platform` | `string` | 目标平台标识（claude/openai/gemini/antigravity） | 路由解析 |
+| `IsStream` | `bool` | 是否流式请求 | 请求解析 |
+| `MaxTokens` | `int` | 最大 token 数限制 | 请求解析或账号配置 |
+| `OrganizationID` | `string` | OpenAI 组织 ID（可空） | `account.OrganizationID`（仅 OpenAI） |
+| `ProjectID` | `string` | OpenAI 项目 ID（可空） | `account.ProjectID`（仅 OpenAI） |
+| `ExtraHeaders` | `map[string]string` | 平台特有附加 Header | 账号配置 |
+| `Timeout` | `int` | 请求超时秒数 | 账号或全局配置 |
+
+> **设计原则**: ProviderContext 只传递插件**必须**知道的上下文。Token/BaseURL 等敏感数据在 WASM 沙箱内使用，不会泄漏到响应。
+
+##### §2.1.4 ProviderResultMetadata 完整字段定义
+
+| 字段 | 类型 | 说明 | 消费方 (核心代码) |
+|------|------|------|------------------|
+| `InputTokens` | `int` | 输入 token 数 | `RecordUsage()` |
+| `OutputTokens` | `int` | 输出 token 数 | `RecordUsage()` |
+| `TotalTokens` | `int` | 总 token 数 | `RecordUsage()` |
+| `ActualModel` | `string` | 上游实际返回的模型名 | Ops 记录 |
+| `StopReason` | `string` | 停止原因（end_turn/max_tokens 等） | 日志/计费 |
+| `NeedFailover` | `bool` | 是否需要 failover 到下一账号 | 核心 failover 逻辑 |
+| `FailoverReason` | `string` | failover 原因 | 核心 failover 逻辑 |
+| `UpstreamStatusCode` | `int` | 上游 HTTP 状态码 | 错误处理/Ops |
+| `CacheCreationTokens` | `int` | Claude cache 写入 token（可选） | Claude 计费 |
+| `CacheReadTokens` | `int` | Claude cache 读取 token（可选） | Claude 计费 |
+
+---
 
 #### 2.2 Provider 插件开发 (约 2-4 周, 可并行)
 
@@ -381,12 +421,12 @@ GitHub Sync 测试:
 5. sub2api 安装 → 替代内置 GatewayService
 ```
 
-| # | 插件 | 核心侧切割线 | 插件侧职责 | 特殊处理 |
-|---|------|-------------|-----------|---------|
-| 2.2.1 | claude-provider | Token 获取, identity 注入, failover | 请求构建, Header 组装, SSE 解析, Usage 提取 | thinking 签名重试: 由核心在收到 Failover=true 时做 body 降级后重试 |
-| 2.2.2 | openai-provider | OAuth 刷新, Codex Usage Snapshot 写入 | 请求构建 (Codex vs Platform URL), SSE 解析, model 替换 | codex-tool-corrector 在 TransformResponse 阶段独立运行 |
-| 2.2.3 | antigravity-provider | Token 获取, PromptTooLongError 判断 | 请求构建, URL fallback, 429 重试, SSE 解析 | 插件内 retry loop (Antigravity 特有), 通过 BaseURLs 列表 |
-| 2.2.4 | gemini-provider | Token 获取, HandleTempUnschedulable | 请求构建 (AI Studio vs Code Assist), SSE 解析 | 协议转换由 claude-gemini-transform 独立 Transform 插件处理 |
+| # | 插件 | 核心侧保留 | 插件侧职责 | 特殊处理 |
+|---|------|-----------|-----------|---------|
+| 2.2.1 | claude-provider | 选号/GetToken, identity 指纹注入 (`ApplyFingerprint`), failover 决策循环, `RecordUsage` | 请求构建 (Header 组装含 `anthropic-version`/`anthropic-beta`), SSE 解析 (`event:` 分发), thinking content block 处理, Usage 提取 (`message_start.usage` + `message_delta.usage`) | thinking 签名重试: 插件返回 `NeedFailover=true` + `FailoverReason="thinking_budget_token"` → 核心做 body 降级后重试 |
+| 2.2.2 | openai-provider | OAuth Token 刷新 (`EnsureValidToken`), Codex Usage Snapshot 写入 (`codexUsageSnapshotService`), 选号 | 请求构建 (区分 Codex `codex-1` URL 与标准 Platform URL), SSE 解析 (`[DONE]` 终止), model 字段替换 | codex-tool-corrector 作为独立 TransformResponse 插件; OpenAI WebSocket 转发 (`openai_ws_forwarder.go`) 暂不插件化 |
+| 2.2.3 | antigravity-provider | Token 获取 (`client.GetToken`), `PromptTooLongError` 判断, `client.go`/`oauth.go` 保留核心 | 请求构建 (URL 路径拼接), 429 重试循环 (插件内 `for` + `time.Sleep`), SSE 解析, Gemini/Claude 类型映射 | 插件需要 `BaseURLs []string` 列表做 URL fallback; `pkg/antigravity/client.go` 和 `pkg/antigravity/oauth.go` 不抽出 |
+| 2.2.4 | gemini-provider | Token 获取, `HandleTempUnschedulable` 状态检查, rate limiter 核心调度 | 请求构建 (区分 AI Studio 与 Code Assist URL/认证方式), SSE 解析 (JSON 数组拆分), `usageMetadata` 提取 | 协议转换 (Claude↔Gemini) 由 `claude-gemini-transform` 独立 Transform 插件处理; `thoughtSignature` 清理由 `gemini-signature-cleaner` Interceptor 处理 |
 
 #### 2.3 内置降级
 
@@ -719,6 +759,10 @@ gantt
 | R6 | 市场 Upload 流程开发量超预期 | 低 | Phase 1 延期 | 可先只做 GitHub Sync 路径, Upload 后补 | 市场 |
 | R7 | 社区开发者门槛过高 | 中 | 生态冷启动 | 官方先发布 12 个核心插件做示范 | 生态 |
 | R8 | 安全漏洞被利用 | 低 | 数据安全 | Phase 0 最高优先级 | 安全 |
+| R9 | pluginruntime 并发安全: `DispatchRuntime.plugins` map 读写无锁保护 | 高 | 运行时 panic | 使用 `sync.RWMutex` 保护 plugin 注册/卸载 map，或改用 `sync.Map` | 运行时 |
+| R10 | Antigravity retry loop 在 WASM 内 `time.Sleep` 可能阻塞宿主线程 | 中 | 请求延迟 | 考虑将 retry 逻辑提升到 Host 侧，插件返回 `NeedRetry=true` | 运行时 |
+| R11 | OpenAI WebSocket 转发 (`openai_ws_forwarder.go`) 无法 WASM 化 | 高 | WebSocket 场景无法使用插件 | 保持核心内置，不纳入插件化范围；在文档中明确标注 | 全栈 |
+| R12 | `GinStreamWriter.WriteChunk` 隐式 Flush 与 DispatchRuntime 显式 Flush 语义冲突 | 中 | 重复 Flush 影响性能 | 统一约定: `WriteChunk` 不自动 Flush，由调度层控制 Flush 时机 | 运行时 |
 
 ---
 

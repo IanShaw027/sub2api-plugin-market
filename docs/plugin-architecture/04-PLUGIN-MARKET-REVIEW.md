@@ -91,28 +91,11 @@ Ent Schema (领域模型)
 
 ### 4.1 🔴 P0 — 必须修复
 
-#### 4.1.1 缺少 `plugin_type` 字段
+#### ~~4.1.1 缺少 `plugin_type` 字段~~ ✅ 已实现
 
-**现状**: Plugin Schema 中没有 `plugin_type` 字段。
+**现状**: ~~Plugin Schema 中没有 `plugin_type` 字段。~~ 已在 `ent/schema/plugin.go` 中实现：`field.Enum("plugin_type").Values("interceptor","transform","provider").Optional()`。OpenAPI spec 也已包含 `type` 查询参数。
 
-**影响**: 
-- 市场无法按插件类型（Interceptor / Transform / Provider）筛选
-- 客户端不知道插件属于哪个执行阶段
-- 无法做类型级别的兼容性校验
-
-**建议**: 在 `ent/schema/plugin.go` 中增加：
-
-```go
-field.Enum("plugin_type").
-    Values("interceptor", "transform", "provider").
-    Optional().
-    Comment("插件类型，对应 DispatchRuntime 的三个阶段"),
-```
-
-同步更新：
-- OpenAPI spec 的 Plugin schema
-- 市场列表 API 增加 `?type=provider` 筛选
-- 管理后台 UI
+**遗留**: handler/repository 层的 `?type=` 筛选实现需确认。
 
 ---
 
@@ -132,19 +115,9 @@ GET /api/v1/plugins/:name/versions?compatible_with=1.2.0
 
 ---
 
-#### 4.1.3 审核通过后未自动发布版本
+#### ~~4.1.3 审核通过后未自动发布版本~~ ✅ 已实现
 
-**现状**: Submission approved 后，关联的 PluginVersion 状态不会自动变为 `published`。
-
-**影响**: 审核通过后还需要手动操作才能让版本可下载。
-
-**建议**: 在 `admin/service/submission_service.go` 的 `ReviewSubmission` 中，审批通过时联动：
-
-```
-if action == "approved" && submission.version != nil {
-    submission.version.Update().SetStatus("published").SetPublishedAt(now)
-}
-```
+**现状**: ~~Submission approved 后，关联的 PluginVersion 状态不会自动变为 `published`。~~ 已在 `admin/service/submission_service.go` 的事务中实现：审批通过时将关联的 draft PluginVersion 更新为 published + 设置 published_at。
 
 ---
 
@@ -244,9 +217,9 @@ sub2api 安装时用此 Schema 生成配置表单。
 
 | 实体 | 字段 | 类型 | 说明 |
 |------|------|------|------|
-| Plugin | `plugin_type` | Enum | interceptor/transform/provider |
-| PluginVersion | `capabilities` | JSON | 需要的 Host API 列表 |
-| PluginVersion | `config_schema` | JSON | 配置项 Schema |
+| ~~Plugin~~ | ~~`plugin_type`~~ | ~~Enum~~ | ✅ 已实现 |
+| ~~PluginVersion~~ | ~~`capabilities`~~ | ~~JSON~~ | ✅ 已实现 |
+| ~~PluginVersion~~ | ~~`config_schema`~~ | ~~JSON~~ | ✅ 已实现 |
 
 ---
 
@@ -262,15 +235,15 @@ sub2api 安装时用此 Schema 生成配置表单。
 | `GET /trust-keys/:key_id` | ✅ | — |
 | `GET /plugins/:name/versions/:version/download` | ✅ | 302 + 预签名 URL 设计好 |
 | `GET /trust-keys` | ✅ | — |
-| `POST /submissions` | 🔴 | **无认证**，需增加 rate limit 或 Token 校验（见 7.1） |
-| `POST /integrations/github/webhook` | 🔴 | secret 为空时跳过 HMAC 校验（见 7.1） |
+| `POST /submissions` | ✅ | 已有 IP 级 rate limit |
+| `POST /integrations/github/webhook` | ✅ | 生产环境下 secret 为空时拒绝处理 |
 
 ### 6.2 Admin API
 
 | 端点 | 评价 | 改进建议 |
 |------|------|---------|
 | `GET /submissions` | ✅ | — |
-| `PUT /submissions/:id/review` | 🟡 | 审批后联动版本发布 |
+| `PUT /submissions/:id/review` | ✅ | 审批后已联动版本发布 |
 | `POST /plugins/:id/sync` | ✅ | 已实现，可增强（见 4.2.1） |
 | `GET /sync-jobs` | ✅ | — |
 
@@ -282,27 +255,27 @@ sub2api 安装时用此 Schema 生成配置表单。
 
 | 问题 | 严重度 | 代码位置 | 建议 |
 |------|--------|----------|------|
-| **POST /submissions 无认证** | P0 | `api/v1/router.go`、`service/submission_service.go` | 任何人可提交插件，易被滥用（垃圾提交、恶意占名）。增加 rate limit 或 Token 校验 |
-| **GITHUB_WEBHOOK_SECRET 为空时跳过签名校验** | P0 | `api/v1/handler/github_webhook_handler.go` | `if h.secret != ""` 才校验。生产环境未配置时应拒绝处理 webhook |
-| **插件名未校验路径遍历** | P1 | `ent/schema/plugin.go`、`service/sync_service.go` | `name` 仅 `NotEmpty()`，未限制 `/`、`..`。Sync 使用 `fmt.Sprintf("plugins/%s/%s/plugin.wasm", name, ref)`，恶意 name 可导致存储路径越界。加正则 `^[a-z0-9][a-z0-9-]*$` |
-| **管理员审核无角色分级** | P1 | `admin/router.go` | 审核路由仅用 `AdminAuth`，未使用 `RequireRole`。reviewer 可审核 official 插件。对 `is_official=true` 仅允许 super_admin/admin 审核 |
+| ~~**POST /submissions 无认证**~~ | ~~P0~~ | `api/v1/router.go` | ✅ 已实现 IP 级 rate limit（`NewIPRateLimiter`） |
+| ~~**GITHUB_WEBHOOK_SECRET 为空时跳过签名校验**~~ | ~~P0~~ | `api/v1/handler/github_webhook_handler.go` | ✅ 已实现（`gin.ReleaseMode` 下拒绝空 secret） |
+| **插件名未校验路径遍历** | P1 | `service/submission_service.go` | ⚠️ Service 层已有正则 `^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$`，但 Schema 层无约束。admin 直接创建插件时可绕过。建议在 schema 层加 `Match()` |
+| ~~**管理员审核无角色分级**~~ | ~~P1~~ | `admin/service/submission_service.go` | ✅ 已实现 `if pluginRecord.IsOfficial && reviewerRole == "reviewer" { return ErrForbiddenReview }` |
 
 ### 7.2 🟡 数据完整性
 
 | 问题 | 严重度 | 代码位置 | 建议 |
 |------|--------|----------|------|
-| **Submission 审核与 Plugin 更新非原子** | P1 | `admin/service/submission_service.go` | `ReviewSubmission` 先更新 Submission 再更新 Plugin，无事务。Plugin 更新失败时状态不一致。用 `client.Tx()` 包裹 |
-| **Submission 与 Version 无关联** | P1 | `service/submission_service.go` | `CreateSubmission` 只创建 Plugin + Submission，不创建 PluginVersion。审核通过只更新元数据，不发布版本。需明确审核→版本发布流程 |
-| **SyncJob 失败产生孤儿 WASM** | P1 | `service/sync_service.go` | 执行顺序：上传 WASM → 检查版本 → 创建版本。Create 失败时 WASM 已写入存储。建议先检查再上传，或失败时清理 |
-| **Sync 创建 draft 无签名** | P1 | `service/sync_service.go` | Sync 创建 `status=draft`、`signature=""`、`sign_key_id=""` 的版本。下载仅返回 `published`，且验签要求 `sign_key_id` 非空。当前 GitHub 同步的版本无法被下载。需实现签名→发布流程 |
+| ~~**Submission 审核与 Plugin 更新非原子**~~ | ~~P1~~ | `admin/service/submission_service.go` | ✅ 已用 `client.Tx()` 事务包裹 |
+| **Submission 与 Version 无关联（手动上传路径）** | P1 | `service/submission_service.go` | ⚠️ Schema 已有 `edge.To("version", PluginVersion.Type)`，但 `CreateSubmission` 不创建 PluginVersion 也不上传 WASM。需在 1.5/1.6 中实现完整 multipart 上传流程 |
+| ~~**SyncJob 失败产生孤儿 WASM**~~ | ~~P1~~ | `service/sync_service.go` | ✅ 已在 Create 失败时调用 `storage.Delete` 清理；操作顺序已改为先检查 `versionAvailable` 再下载上传 |
+| **Sync 创建 draft 无签名** | P1 | `service/sync_service.go` | ⚠️ 部分修复——配置 `PLUGIN_SIGNING_KEY_ID` 时可自动签名并发布为 published；未配置时仍创建 draft 无签名。仍需实现从 Release 下载 `manifest.json` + `signature.sig` 的完整验签流程 |
 
 ### 7.3 🟡 并发竞态
 
 | 问题 | 严重度 | 代码位置 | 建议 |
 |------|--------|----------|------|
-| **手动 Sync 与 Webhook Sync 并发** | P1 | `admin/handler/sync_handler.go`、`api/v1/handler/github_webhook_handler.go` | 手动同步执行 + Webhook 异步执行可能同时跑 `runGitHubSync`。`versionAvailable` 与 `Create` 之间无锁，可产生竞态和孤儿 WASM。对 `(plugin_id, target_ref)` 加分布式锁 |
-| **双管理员同时审核** | P2 | `admin/service/submission_service.go` | 无乐观锁，后者覆盖前者。审核前检查 `status == pending`，用条件更新 |
-| **同一插件多笔 pending Submission** | P2 | `service/submission_service.go` | 无限制，同一插件可多次提交。限制每插件同时 pending 数量 |
+| ~~**手动 Sync 与 Webhook Sync 并发**~~ | ~~P1~~ | `service/sync_service.go` | ✅ 已有 `sync.Map` + `acquireSyncLock(pluginID, targetRef)` 进程内锁。⚠️ 多实例部署时需升级为分布式锁 |
+| ~~**双管理员同时审核**~~ | ~~P2~~ | `admin/service/submission_service.go` | ✅ 已有乐观锁 `Where(submission.StatusEQ(submission.StatusPending))` |
+| ~~**同一插件多笔 pending Submission**~~ | ~~P2~~ | `service/submission_service.go` | ✅ 已限制 `pendingCount >= 3` 时拒绝 |
 
 ### 7.4 可扩展性
 

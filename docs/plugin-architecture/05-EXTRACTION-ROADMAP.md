@@ -8,10 +8,10 @@
 
 ## 总体策略
 
-分 4 个 Phase 推进，每个 Phase 可独立交付价值：
+分 5 个 Phase 推进（Phase 0-4），每个 Phase 可独立交付价值：
 
 ```
-Phase 1 (基础)     → 打通插件链路，市场补齐缺失字段
+Phase 1 (链路打通)  → 打通插件链路，市场补齐缺失字段
 Phase 2 (Provider)  → 4 个 Provider 插件化
 Phase 3 (Transform) → 转换和拦截器插件化
 Phase 4 (生态)      → 社区工具链和生态建设
@@ -37,7 +37,7 @@ Phase 4 (生态)      → 社区工具链和生态建设
 
 | 任务 | 涉及文件 | 工作量 |
 |------|---------|--------|
-| 插件名正则校验 `^[a-z0-9][a-z0-9-]*$` | `ent/schema/plugin.go` 或 service 层 | 小 |
+| 插件名正则校验 `^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$` | `ent/schema/plugin.go`（schema 层加固，service 层已有） | 小 |
 | Official 插件审核角色限制 | `admin/router.go` 或 handler 层 | 小 |
 | SyncJob 并发锁（`plugin_id + target_ref`） | `service/sync_service.go` | 中 |
 | SyncJob 失败清理孤儿 WASM | `service/sync_service.go`（调整操作顺序或增加清理） | 小 |
@@ -53,11 +53,11 @@ Phase 4 (生态)      → 社区工具链和生态建设
 
 ---
 
-## Phase 1: 基础设施完善
+## Phase 1: 链路打通
 
 **目标**: 让 DispatchRuntime 真正接入主请求链路，插件市场补齐关键缺失。
 
-**预计周期**: 2-3 周
+**预计周期**: 3-4 周
 
 ### 1.1 插件市场改动
 
@@ -310,7 +310,7 @@ Provider 插件化后，需要保留内置实现作为降级：
 | Phase | 交付物 | 核心价值 | 预计周期 |
 |-------|--------|---------|---------|
 | Phase 0 | 安全加固 + 数据完整性修复 | 市场端安全可靠 | 1-2 周 |
-| Phase 1 | 链路打通 + 市场补齐 | 插件系统可用 | 2-3 周 |
+| Phase 1 | 链路打通 + 市场补齐 | 插件系统可用 | 3-4 周 |
 | Phase 2 | Host 流式编排 + 4 个 Provider 插件 | 新 Provider 不改核心代码 | 4-6 周 |
 | Phase 3 | 7 个 Transform/Interceptor 插件 | 协议转换可独立升级 | 3-4 周 |
 | Phase 4 | SDK + CLI + 文档 | 社区可以贡献插件 | 4+ 周 |

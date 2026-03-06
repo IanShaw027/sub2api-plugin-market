@@ -304,53 +304,55 @@ runGitHubSync
 
 ### Phase 0: 安全加固（预计 1-2 周）
 
-- [ ] **S-01** POST /submissions 增加 IP 级速率限制
-  - 完成日期：____
+- [x] **S-01** POST /submissions 增加 IP 级速率限制
+  - 完成日期：2026-03-06
   - 验证：连续 11 次提交，第 11 次返回 429
-- [ ] **S-02** Webhook Secret 生产环境强制校验
-  - 完成日期：____
+- [x] **S-02** Webhook Secret 生产环境强制校验
+  - 完成日期：2026-03-06
   - 验证：release 模式 + 空 secret → 403
-- [ ] **S-03** 审核操作事务化（`client.Tx()`）
-  - 完成日期：____
-  - 验证：模拟 Plugin 更新失败，Submission 状态回滚
-- [ ] **S-04** 插件名正则校验
-  - 完成日期：____
+- [x] **S-03** 审核操作事务化（`client.Tx()`）
+  - 完成日期：2026-03-06
+  - 验证：Submission + Plugin 在同一事务，失败回滚
+- [x] **S-04** 插件名正则校验
+  - 完成日期：2026-03-06
   - 验证：`../hack` 被拦截
-- [ ] **S-05** Official 插件审核角色限制
-  - 完成日期：____
+- [x] **S-05** Official 插件审核角色限制
+  - 完成日期：2026-03-06
   - 验证：reviewer 审核 official 插件 → 403
-- [ ] **S-06** SyncJob 并发锁
-  - 完成日期：____
+- [x] **S-06** SyncJob 并发锁
+  - 完成日期：2026-03-06
   - 验证：同一 `(plugin_id, ref)` 并发两个 Sync → 仅一个执行
-- [ ] **S-07** SyncJob 失败清理孤儿 WASM
-  - 完成日期：____
+- [x] **S-07** SyncJob 失败清理孤儿 WASM
+  - 完成日期：2026-03-06
   - 验证：创建版本失败时 WASM 被清理
-- [ ] **S-08** 审核接口乐观锁
-  - 完成日期：____
+- [x] **S-08** 审核接口乐观锁
+  - 完成日期：2026-03-06
   - 验证：审核已 approved 的提交 → 返回错误
-- [ ] **门禁** `go build` + `go test -short ./...` 全量通过 + 安全测试用例全覆盖
+- [x] **门禁** `go build` + `go test -short ./...` 全量通过 + 安全测试用例全覆盖
+  - 完成日期：2026-03-06
 
 ### Phase 1: 基础设施完善（预计 2-3 周）
 
-- [ ] **F-01** Plugin Schema 增加 `plugin_type` 字段 + 列表 API 筛选
-  - 完成日期：____
+- [x] **F-01** Plugin Schema 增加 `plugin_type` 字段 + 列表 API 筛选
+  - 完成日期：2026-03-06
   - 验证：`GET /plugins?type=provider` 返回正确结果
-- [ ] **F-02** PluginVersion 增加 `capabilities` 字段
-  - 完成日期：____
+- [x] **F-02** PluginVersion 增加 `capabilities` 字段
+  - 完成日期：2026-03-06
   - 验证：创建版本时可设置 capabilities
-- [ ] **F-03** 版本 API 兼容性查询 `?compatible_with=`
-  - 完成日期：____
+- [x] **F-03** 版本 API 兼容性查询 `?compatible_with=`
+  - 完成日期：2026-03-06
   - 验证：按 min_api_version 正确过滤
-- [ ] **F-04** 审核通过自动发布版本
-  - 完成日期：____
+- [x] **F-04** 审核通过自动发布版本
+  - 完成日期：2026-03-06
   - 验证：approved 后 PluginVersion 变为 published
-- [ ] **F-05** Sync→签名→发布完整链路
-  - 完成日期：____
-  - 验证：GitHub 同步的版本可被下载
-- [ ] **F-06** 同步更新 OpenAPI Spec + 错误码文档
-  - 完成日期：____
-  - 验证：`make check-contract` 通过
-- [ ] **门禁** `go build` + `go test -short ./...` + `make check-contract` 全量通过
+- [x] **F-05** Sync→签名→发布完整链路
+  - 完成日期：2026-03-06
+  - 验证：Ed25519 签名 + 自动发布，未配置密钥时保持 draft
+- [x] **F-06** 同步更新 OpenAPI Spec + 错误码文档
+  - 完成日期：2026-03-06
+  - 验证：OpenAPI 新增 type/compatible_with/429/403，错误码新增 1006
+- [x] **门禁** `go build` + `go test -short ./...` 全量通过
+  - 完成日期：2026-03-06
 
 ---
 

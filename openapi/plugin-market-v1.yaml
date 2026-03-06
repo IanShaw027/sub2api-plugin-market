@@ -32,6 +32,12 @@ paths:
           schema:
             type: string
         - in: query
+          name: type
+          description: 按插件类型筛选
+          schema:
+            type: string
+            enum: [interceptor, transform, provider]
+        - in: query
           name: search
           schema:
             type: string
@@ -110,6 +116,12 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: compatible_with
+          description: 按 API 版本兼容性过滤，返回 min_api_version <= 此值的版本
+          schema:
+            type: string
+            example: "1.2.0"
       responses:
         '200':
           description: 统一响应格式
@@ -264,6 +276,20 @@ paths:
               example:
                 code: 1001
                 message: source_type=github 时 github_repo_url 不能为空
+        '429':
+          description: 请求过于频繁（IP 级速率限制）
+          headers:
+            Retry-After:
+              description: 建议等待秒数
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              example:
+                code: 1001
+                message: 请求过于频繁，请稍后再试
         '500':
           description: 数据库错误（code=1004）
           content:
@@ -322,6 +348,18 @@ paths:
                       status: succeeded
         '400':
           description: 请求参数或签名校验失败（code=1001）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '403':
+          description: 生产环境未配置 GITHUB_WEBHOOK_SECRET（code=1006）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '429':
+          description: 请求过于频繁
           content:
             application/json:
               schema:
@@ -738,7 +776,8 @@ components:
       properties:
         plugin_name:
           type: string
-          description: 插件唯一名称
+          description: 插件唯一名称，仅允许小写字母、数字和连字符，长度 2-64
+          pattern: '^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$'
           example: example-plugin
         display_name:
           type: string

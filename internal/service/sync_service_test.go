@@ -250,28 +250,54 @@ func (s *syncTestCallbackStorage) Exists(_ context.Context, _ string) (bool, err
 }
 
 func TestSyncService_ConcurrentLock_BlocksDuplicate(t *testing.T) {
-	svc := &SyncService{}
+	svc := &SyncService{locker: NewInMemoryLocker()}
+	ctx := context.Background()
 
-	unlock1, err := svc.acquireSyncLock("plugin-a", "v1.0.0")
+	unlock1, err := svc.acquireSyncLock(ctx, "plugin-a", "v1.0.0")
 	require.NoError(t, err)
 	require.NotNil(t, unlock1)
 
 	// Same key must be rejected while lock is held
-	_, err = svc.acquireSyncLock("plugin-a", "v1.0.0")
+	_, err = svc.acquireSyncLock(ctx, "plugin-a", "v1.0.0")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "concurrent sync in progress")
 
 	// Different key is independent — must succeed
-	unlock2, err := svc.acquireSyncLock("plugin-b", "v1.0.0")
+	unlock2, err := svc.acquireSyncLock(ctx, "plugin-b", "v1.0.0")
 	require.NoError(t, err)
 	require.NotNil(t, unlock2)
 	unlock2()
 
 	// After releasing the first lock, same key succeeds again
 	unlock1()
-	unlock3, err := svc.acquireSyncLock("plugin-a", "v1.0.0")
+	unlock3, err := svc.acquireSyncLock(ctx, "plugin-a", "v1.0.0")
 	require.NoError(t, err)
 	require.NotNil(t, unlock3)
+	unlock3()
+}
+
+func TestInMemoryLocker_IndependentKeys(t *testing.T) {
+	locker := NewInMemoryLocker()
+	ctx := context.Background()
+
+	// Acquire lock on key-a
+	unlock1, err := locker.TryLock(ctx, "key-a")
+	require.NoError(t, err)
+
+	// key-b is independent
+	unlock2, err := locker.TryLock(ctx, "key-b")
+	require.NoError(t, err)
+
+	// key-a still locked
+	_, err = locker.TryLock(ctx, "key-a")
+	assert.Error(t, err)
+
+	unlock1()
+	unlock2()
+
+	// Both reacquirable
+	unlock3, err := locker.TryLock(ctx, "key-a")
+	require.NoError(t, err)
 	unlock3()
 }
 

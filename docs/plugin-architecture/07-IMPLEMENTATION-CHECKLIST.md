@@ -10,13 +10,13 @@
 
 | Phase | 任务数 | 已完成 | 进度 | 状态 | 前置 |
 |-------|-------|--------|------|------|------|
-| Phase 0: 安全加固 | 11 | 9 | 82% | 收尾中 | 无 |
+| Phase 0: 安全加固 | 11 | 11 | 100% | ✅ 完成 | 无 |
 | Phase 1: 链路打通 | 18 | 18 | 100% | ✅ 完成 | Phase 0 |
-| Phase 2: Provider 插件化 | 24 | 20 | 83% | 收尾中(灰度) | Phase 1 |
+| Phase 2: Provider 插件化 | 24 | 21 | 88% | 收尾中(灰度) | Phase 1 |
 | Phase 3: Transform/Interceptor | 10 | 10 | 100% | ✅ 完成 | Phase 2.1 |
 | Phase 4: 生态建设 | 17 | 13 | 76% | 进行中 | Phase 3 |
 | 运维与上线准备 | 8 | 8 | 100% | ✅ 完成 | 随各 Phase 同步 |
-| **合计** | **88** | **78** | **89%** | | |
+| **合计** | **88** | **81** | **92%** | | |
 
 ---
 
@@ -56,13 +56,12 @@
   - 现状: ✅ 已有 `if pluginRecord.IsOfficial && reviewerRole == "reviewer" { return ErrForbiddenReview }`
   - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **0.6** Sync 并发锁（升级为分布式锁）
-  - 文件: `internal/service/sync_service.go`
-  - 现状: ⚠️ 已有 `sync.Map` 进程内锁，但多实例部署时无效
-  - 改动: 替换为 Redis `SETNX` 或 PostgreSQL advisory lock（如单实例部署可保留现状并标注）
+- [x] **0.6** Sync 并发锁（升级为分布式锁）
+  - 文件: `internal/service/sync_service.go` + 新增 `internal/service/sync_locker.go`
+  - 改动: 抽象 `SyncLocker` 接口 + `PgAdvisoryLocker`(PostgreSQL advisory lock) + `InMemoryLocker`(单实例/测试)；`SyncService` 通过构造函数注入 locker；`cmd/server/main.go` 自动创建 PgAdvisoryLocker 并注入
   - 验证: 两个 market 实例同时触发 Sync → 只有一个执行
   - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 - [x] **0.7** Sync 操作顺序 + 孤儿清理
   - 文件: `internal/service/sync_service.go`
@@ -87,18 +86,16 @@
   - 现状: ✅ 已实现 — 第 73 行 `sync.RWMutex`，Register* 用 `Lock()`，snapshotSortedRegistrations/HasActivePlugins 用 `RLock()`
   - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **0.11** GinStreamWriter.WriteChunk Flush 语义统一
+- [x] **0.11** GinStreamWriter.WriteChunk Flush 语义统一
   - 仓库: `sub2api`
   - 文件: `backend/internal/pluginruntime/writer.go`
-  - 现状: `GinStreamWriter.WriteChunk()` 内部隐式调用 `Flush()`，与 DispatchRuntime 显式调用 `Flush()` 产生重复 Flush
-  - 改动: `WriteChunk` 只写缓冲不自动 Flush，由调度层统一控制 Flush 时机
-  - 验证: 流式输出正常 + 无多余 Flush 开销
-  - 依赖: 2.1 (StreamWriter 扩展)
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: `WriteChunk` 移除内部 `flusher.Flush()` 调用，仅执行 `writer.Write(chunk)`；Flush 时机由 DispatchRuntime 和 StreamPipeline 的显式 `writer.Flush()` 统一控制
+  - 验证: 9 个 writer 测试全部通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### Phase 0 验收门禁
 
-- [ ] 全部 11 项中：9 项已完成、1 项待完成（0.6 分布式锁评估）、1 项暂跳过（0.11 依赖 Phase 2）
+- [x] 全部 11 项已完成（0.6 分布式锁 + 0.11 Flush 语义统一 均已实现）
 - [ ] `make test` 通过（含新增测试用例）
 - [ ] `make lint` 通过
 - [ ] 安全测试覆盖: rate limit / webhook 强制 / 路径遍历 / 并发锁 / 乐观锁 / pending 数量限制
@@ -249,25 +246,11 @@
   - 改动: 新增 `StreamDelegate` 结构体 + `StreamProviderPlugin` 接口（PrepareStream/OnSSELine/OnStreamEnd），与已有 StreamingProviderPlugin 共存
   - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **2.3** ProviderContext 定义（详见 06 方案 §2.1.3）
-  - 文件: `pluginapi/types.go`
-  - 改动: 定义 ProviderContext 结构体，完整字段:
-    - `AccountID int` — 选中账号 ID
-    - `Token string` — 访问令牌
-    - `BaseURL string` — 上游 API 基础 URL
-    - `ProxyURL string` — 代理 URL（可空）
-    - `OriginalModel string` — 用户请求原始模型名
-    - `MappedModel string` — 经映射后的模型名
-    - `Platform string` — 目标平台标识
-    - `IsStream bool` — 是否流式请求
-    - `MaxTokens int` — 最大 token 数限制
-    - `OrganizationID string` — OpenAI 组织 ID（可空）
-    - `ProjectID string` — OpenAI 项目 ID（可空）
-    - `ExtraHeaders map[string]string` — 平台特有附加 Header
-    - `Timeout int` — 请求超时秒数
+- [x] **2.3** ProviderContext 定义（详见 06 方案 §2.1.3）
+  - 文件: `pluginapi/provider_context.go`
+  - 改动: 正式类型已定义在 `ProviderContext` 结构体中，包含 AccountID/Platform/AccountType/Token/TokenType/BaseURL/BaseURLs/ProxyURL/MappedModel/OriginalModel/IsStream/MaxTokens/Timeout/ExtraHeaders/PlatformSpecific 共 15 个字段；`buildProviderContext` 已填充 `IsStream`；平台特定字段通过 `PlatformSpecific map[string]any` 传递
   - 约定: 通过 `GatewayRequest.Metadata["provider_context"]` 传递
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 - [x] **2.4** ProviderResultMetadata 定义（详见 06 方案 §2.1.4）
   - 文件: `pluginapi/types.go` + `pluginapi/provider_context.go`
@@ -748,3 +731,5 @@ next := func(context.Context, *pluginapi.GatewayRequest) (*pluginapi.GatewayResp
 | 2026-03-06 | V3 上线完整性修复 | 新增 0.9 pending 限制、1.17 DB 迁移、1.18 管理后台 UI、2.22 对比测试框架、2.23 Shadow/Canary 机制、2.24 WASM body 限制；新增「运维与上线准备」章节(OPS.1-8)；里程碑增加 M7 运维就绪。总计 86 项 |
 | 2026-03-06 | V4 源码交叉校验 | 对照 sub2api + market 双仓库源码逐项校验：标记已完成 9 项；修正 0.2/0.6 为"部分完成"；新增 10 条源码级发现（见下方交叉校验报告） |
 | 2026-03-06 | V5 深度审查同步 | 新增 Phase 0 任务 0.10(pluginruntime map 并发保护)/0.11(WriteChunk Flush 语义统一)；ProviderContext 字段扩展至 13 个(新增 IsStream/MaxTokens/OrganizationID/ProjectID/ExtraHeaders/Timeout)；ProviderResultMetadata 字段扩展至 10 个(新增 StopReason/UpstreamStatusCode/CacheCreationTokens/CacheReadTokens)；4 个 Provider 切割线全部修正（详细到函数级别）；06 方案升级至 V2(新增 §2.1.3/§2.1.4 字段表 + 风险 R9-R12)。总计 88 项 |
+
+|| 2026-03-06 | V6 全面审查执行 | 完成 0.6(PgAdvisoryLocker)/0.11(WriteChunk Flush)/2.3(ProviderContext 正式类型)；新增 admin API 集成测试 13 个 + PluginService/TrustKeyService 单元测试 16 个；SEMVER 兼容性升级至 golang.org/x/mod/semver(含 max_api_version)；Phase 定义标注 active/reserved。进度 78→81 (92%) |

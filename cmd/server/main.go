@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -78,7 +79,9 @@ func main() {
 	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
 	downloadService := service.NewDownloadService(pluginRepo, storageBackend, client, verificationService)
 	submissionService := service.NewSubmissionService(client, storageBackend)
-	syncService := service.NewSyncService(client, storageBackend)
+
+	syncLocker := initSyncLocker()
+	syncService := service.NewSyncService(client, storageBackend, syncLocker)
 
 	pluginHandler := handler.NewPluginHandler(pluginService)
 	downloadHandler := handler.NewDownloadHandler(downloadService)
@@ -208,6 +211,38 @@ func getEnvIntWithMin(key string, defaultValue, minValue int) int {
 		return minValue
 	}
 	return parsed
+}
+
+// initSyncLocker creates a PgAdvisoryLocker using the same DSN as the main database.
+// Falls back to InMemoryLocker if the connection cannot be established.
+func initSyncLocker() service.SyncLocker {
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "5433")
+	dbUser := getEnv("DB_USER", "postgres")
+	dbPassword := getEnv("DB_PASSWORD", "postgres")
+	dbName := getEnv("DB_NAME", "plugin_market")
+	sslMode := getEnv("DB_SSLMODE", "disable")
+
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		dbHost, dbPort, dbUser, dbPassword, dbName, sslMode)
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.Printf("Warning: cannot open DB for advisory locks, falling back to in-memory locker: %v", err)
+		return service.NewInMemoryLocker()
+	}
+
+	db.SetMaxOpenConns(3)
+	db.SetMaxIdleConns(1)
+
+	if err := db.Ping(); err != nil {
+		log.Printf("Warning: cannot ping DB for advisory locks, falling back to in-memory locker: %v", err)
+		db.Close()
+		return service.NewInMemoryLocker()
+	}
+
+	log.Println("Sync distributed lock: PostgreSQL advisory lock enabled")
+	return service.NewPgAdvisoryLocker(db)
 }
 
 // resolveAdminJWTSecret 解析并校验 ADMIN_JWT_SECRET

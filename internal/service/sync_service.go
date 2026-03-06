@@ -15,7 +15,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
@@ -29,12 +28,11 @@ import (
 
 const autoSyncDedupWindow = 10 * time.Minute
 
-var syncLocks sync.Map // key: "plugin_id:target_ref", value: *sync.Mutex
-
 // SyncService 同步任务服务（MVP）
 type SyncService struct {
 	client         *ent.Client
 	storage        storage.Storage
+	locker         SyncLocker
 	httpClient     *http.Client // optional; nil means http.DefaultClient (for tests: inject mock)
 	githubAPIBase  string        // optional; empty means "https://api.github.com" (for tests: inject mock server URL)
 	signingKeyID   string              // from PLUGIN_SIGNING_KEY_ID env; empty = signing disabled
@@ -52,9 +50,16 @@ type ListSyncJobsParams struct {
 	To          *time.Time
 }
 
-// NewSyncService 创建同步服务
-func NewSyncService(client *ent.Client, storage storage.Storage) *SyncService {
+// NewSyncService 创建同步服务。
+// locker may be nil; defaults to InMemoryLocker for backward compatibility.
+func NewSyncService(client *ent.Client, storage storage.Storage, locker ...SyncLocker) *SyncService {
 	s := &SyncService{client: client, storage: storage}
+
+	if len(locker) > 0 && locker[0] != nil {
+		s.locker = locker[0]
+	} else {
+		s.locker = NewInMemoryLocker()
+	}
 
 	keyID := os.Getenv("PLUGIN_SIGNING_KEY_ID")
 	keyHex := os.Getenv("PLUGIN_SIGNING_PRIVATE_KEY")
@@ -355,22 +360,9 @@ func extractOwnerRepo(githubRepoURL string) string {
 	return strings.TrimPrefix(normalized, "github.com/")
 }
 
-func (s *SyncService) acquireSyncLock(pluginID, targetRef string) (unlock func(), err error) {
+func (s *SyncService) acquireSyncLock(ctx context.Context, pluginID, targetRef string) (unlock func(), err error) {
 	key := pluginID + ":" + targetRef
-	mu := &sync.Mutex{}
-	actual, loaded := syncLocks.LoadOrStore(key, mu)
-	actualMu := actual.(*sync.Mutex)
-
-	if !actualMu.TryLock() {
-		return nil, fmt.Errorf("concurrent sync in progress for plugin %s ref %s", pluginID, targetRef)
-	}
-
-	return func() {
-		actualMu.Unlock()
-		if !loaded {
-			syncLocks.Delete(key)
-		}
-	}, nil
+	return s.locker.TryLock(ctx, key)
 }
 
 // CanSign reports whether automatic signing is configured.
@@ -466,8 +458,7 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 		targetRef = tag
 	}
 
-	// S-06: Acquire process-level sync lock for this plugin+ref
-	unlock, err := s.acquireSyncLock(pluginID.String(), targetRef)
+	unlock, err := s.acquireSyncLock(ctx, pluginID.String(), targetRef)
 	if err != nil {
 		return err
 	}

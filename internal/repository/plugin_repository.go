@@ -138,13 +138,24 @@ func (r *PluginRepository) GetPluginVersions(ctx context.Context, pluginName, co
 			pluginversion.StatusEQ(pluginversion.StatusPublished),
 		)
 
-	if compatibleWith != "" {
-		query = query.Where(pluginversion.MinAPIVersionLTE(compatibleWith))
-	}
-
-	return query.
+	allVersions, err := query.
 		Order(ent.Desc(pluginversion.FieldPublishedAt)).
 		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if compatibleWith == "" {
+		return allVersions, nil
+	}
+
+	var filtered []*ent.PluginVersion
+	for _, v := range allVersions {
+		if isVersionCompatible(v.MinAPIVersion, v.MaxAPIVersion, compatibleWith) {
+			filtered = append(filtered, v)
+		}
+	}
+	return filtered, nil
 }
 
 // GetPluginVersion 获取指定版本

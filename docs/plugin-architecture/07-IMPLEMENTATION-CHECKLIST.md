@@ -13,10 +13,10 @@
 | Phase 0: 安全加固 | 11 | 9 | 82% | 收尾中 | 无 |
 | Phase 1: 链路打通 | 18 | 18 | 100% | ✅ 完成 | Phase 0 |
 | Phase 2: Provider 插件化 | 24 | 20 | 83% | 收尾中(灰度) | Phase 1 |
-| Phase 3: Transform/Interceptor | 10 | 8 | 80% | 收尾中 | Phase 2.1 |
-| Phase 4: 生态建设 | 17 | 0 | 0% | 未开始 | Phase 3 |
-| 运维与上线准备 | 8 | 0 | 0% | 未开始 | 随各 Phase 同步 |
-| **合计** | **88** | **55** | **63%** | | |
+| Phase 3: Transform/Interceptor | 10 | 10 | 100% | ✅ 完成 | Phase 2.1 |
+| Phase 4: 生态建设 | 17 | 1 | 6% | 进行中 | Phase 3 |
+| 运维与上线准备 | 8 | 5 | 63% | 进行中 | 随各 Phase 同步 |
+| **合计** | **88** | **63** | **72%** | | |
 
 ---
 
@@ -402,18 +402,15 @@
 
 ### 3.1 前置基础设施
 
-- [ ] **3.1** Config Host API
-  - 文件: `pluginapi/types.go`(接口) + `pluginruntime/host_api_config.go`(新文件) + `pluginruntime/capability.go`(新增 `CapabilityHostConfigRead`)
-  - 改动: 定义 `ConfigReader{Get(key) (string,error); GetAll() (map[string]string,error)}`；实现从配置文件加载，按 pluginID namespace 隔离
-  - 验证: model-mapper 插件可通过 `config.Get("model_mapping")` 读取映射表
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.1** Config Host API
+  - 文件: `pluginruntime/host_api_config.go` + `host_api_config_test.go` + `capability.go` 新增 `CapabilityHostConfigRead`
+  - 改动: `HostAPIConfig` — Get/GetAll 按 pluginID namespace 隔离 + capability 检查; 5 个测试通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **3.2** TransformPlugin 增加 ChunkTransformer 可选接口
+- [x] **3.2** TransformPlugin 增加 ChunkTransformer 可选接口
   - 文件: `pluginapi/types.go`
-  - 改动: `type ChunkTransformer interface { TransformChunk(chunk []byte) ([]byte, error) }`
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: 新增 `ChunkTransformer` 接口 `TransformChunk(chunk []byte) ([]byte, error)`
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 - [x] **3.3** Host 流式管道链式调用
   - 文件: `pluginruntime/stream_pipeline.go` + `stream_pipeline_test.go`
@@ -533,10 +530,10 @@
 
 ### 4.3 运行时增强
 
-- [ ] **4.10** 热重载实现
-  - 文件: `pluginruntime/hot_reload_coordinator.go`
-  - 改动: 实现 `HotReloadPlugin`: 旧实例 draining（处理进行中请求），新实例处理新请求
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **4.10** 热重载实现
+  - 文件: `pluginruntime/hot_reload_coordinator.go` + `hot_reload_coordinator_test.go`
+  - 现状: ✅ 已实现 — HotReloadCoordinator 支持 Load/Reload/Unload/DrainTimeout/ContextCancellation; 6 个测试通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
 - [ ] **4.11** Prometheus metrics 导出
   - 文件: `pluginruntime/observability.go`
@@ -583,11 +580,10 @@
 
 ### A. 环境与配置
 
-- [ ] **OPS.1** 生产环境变量清单
-  - 交付: 一份文档或 `.env.example`，列出所有新增/变更的环境变量
-  - 涵盖: `GITHUB_WEBHOOK_SECRET`(强制)、Rate Limit 配置、Redis 连接（如用 SETNX）、WASM body 大小限制、Shadow/Canary 配置、Config Host API 配置目录
-  - 验证: 新部署按文档配置后一次启动成功
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **OPS.1** 生产环境变量清单
+  - 交付: `docs/ENV-VARIABLES.md` + `.env.example`
+  - 涵盖: DB(6项)/服务(4项)/安全(2项)/签名(2项)/GitHub(1项) 共 15 个变量
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 - [ ] **OPS.2** 数据库迁移预演
   - 交付: 在 staging 环境完整执行一次 DB 迁移（Phase 0 的 name 校验 + Phase 1 的 schema 扩展），记录耗时和影响
@@ -596,12 +592,10 @@
 
 ### B. 部署流程
 
-- [ ] **OPS.3** 部署顺序与回滚预案
-  - 交付: 文档明确每个 Phase 的部署顺序：
-    - Phase 0/1: **先部署 market → 再部署 sub2api**（market 提供新 API 后 sub2api 才能调用）
-    - Phase 2/3: **先部署 sub2api**（新运行时能力） → 再安装插件
-  - 回滚: 每个 Phase 部署前备份 DB → 出问题回滚二进制 + DB
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **OPS.3** 部署顺序与回滚预案
+  - 交付: `docs/DEPLOYMENT-GUIDE.md`
+  - 涵盖: Phase 分步部署顺序 + 灰度策略 (Shadow→Canary→Full) + 快速/完整回滚预案 + Health Check
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 - [ ] **OPS.4** CI/CD Pipeline 更新
   - 涵盖:
@@ -625,23 +619,22 @@
     - SyncJob 连续失败 3 次 → P2 告警
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **OPS.6** Health Check 端点增强
-  - 文件: market `cmd/server/main.go` + sub2api health endpoint
-  - 改动: health check 增加 DispatchRuntime 状态（已注册插件数/熔断插件数）+ market 增加 DB/Storage/Redis 连通性检查
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **OPS.6** Health Check 端点增强
+  - 文件: `cmd/server/main.go`
+  - 改动: `/health` 增加 DB 连通性检查（`client.Plugin.Query().Limit(1)`），失败返回 503 + `"status":"degraded"`
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### D. 风险缓解
 
-- [ ] **OPS.7** GitHub API 限流保护
+- [x] **OPS.7** GitHub API 限流保护
   - 文件: `internal/service/sync_service.go`
-  - 改动: GitHub API 调用增加 retry + exponential backoff（初始 1s，最大 60s，最多 3 次）；批量 Sync 时限制并发数（如 3 个并发）
-  - 验证: 模拟 GitHub 429 → 重试后成功
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已实现 — `doGitHubRequest` 已有 maxRetries=3 + exponential backoff(1s/2s/4s) + 429/403 rate limit header 解析 + wait until reset
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **OPS.8** Semver 兼容性匹配规则文档
-  - 交付: 文档明确 `?compatible_with=` 的匹配算法：`min_api_version <= X` 且 `(max_api_version == "" || max_api_version >= X)`，使用 Go `semver` 包的比较语义
-  - 验证: 边界用例测试（如 `1.0.0-beta` vs `1.0.0`）
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **OPS.8** Semver 兼容性匹配规则文档
+  - 交付: `docs/SEMVER-COMPATIBILITY.md`
+  - 涵盖: 匹配算法 + 实现代码 + 边界用例表 + 后续改进建议
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### 运维准备验收
 

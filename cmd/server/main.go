@@ -114,9 +114,20 @@ func main() {
 	// 初始化 Gin 路由
 	r := gin.Default()
 
-	// 健康检查接口
+	// 健康检查接口（含 DB 连通性）
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		result := gin.H{"status": "ok"}
+		httpStatus := 200
+
+		if _, err := client.Plugin.Query().Limit(1).All(c.Request.Context()); err != nil {
+			result["db"] = "error: " + err.Error()
+			result["status"] = "degraded"
+			httpStatus = 503
+		} else {
+			result["db"] = "ok"
+		}
+
+		c.JSON(httpStatus, result)
 	})
 
 	// 注册 API 路由

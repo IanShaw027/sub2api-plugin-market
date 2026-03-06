@@ -63,6 +63,19 @@ func (Plugin) Fields() []ent.Field {
 			Min(0).
 			Max(5).
 			Comment("评分"),
+		field.Enum("source_type").
+			Values("upload", "github").
+			Default("upload").
+			Comment("来源类型"),
+		field.String("github_repo_url").
+			Optional().
+			Comment("GitHub 仓库地址"),
+		field.String("github_repo_normalized").
+			Optional().
+			Comment("Normalized GitHub repo URL for index lookup"),
+		field.Bool("auto_upgrade_enabled").
+			Default(false).
+			Comment("是否启用自动升级"),
 		field.Enum("status").
 			Values("active", "deprecated", "suspended").
 			Default("active").
@@ -82,6 +95,7 @@ func (Plugin) Edges() []ent.Edge {
 		edge.To("versions", PluginVersion.Type),
 		edge.To("submissions", Submission.Type),
 		edge.To("download_logs", DownloadLog.Type),
+		edge.To("sync_jobs", SyncJob.Type),
 	}
 }
 
@@ -92,5 +106,6 @@ func (Plugin) Indexes() []ent.Index {
 		index.Fields("is_official", "status"),
 		index.Fields("category", "status"),
 		index.Fields("is_official", "status", "download_count"),
+		index.Fields("github_repo_normalized"),
 	}
 }

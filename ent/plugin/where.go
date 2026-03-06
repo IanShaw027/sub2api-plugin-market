@@ -111,6 +111,21 @@ func Rating(v float64) predicate.Plugin {
 	return predicate.Plugin(sql.FieldEQ(FieldRating, v))
 }
 
+// GithubRepoURL applies equality check predicate on the "github_repo_url" field. It's identical to GithubRepoURLEQ.
+func GithubRepoURL(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEQ(FieldGithubRepoURL, v))
+}
+
+// GithubRepoNormalized applies equality check predicate on the "github_repo_normalized" field. It's identical to GithubRepoNormalizedEQ.
+func GithubRepoNormalized(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEQ(FieldGithubRepoNormalized, v))
+}
+
+// AutoUpgradeEnabled applies equality check predicate on the "auto_upgrade_enabled" field. It's identical to AutoUpgradeEnabledEQ.
+func AutoUpgradeEnabled(v bool) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEQ(FieldAutoUpgradeEnabled, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Plugin {
 	return predicate.Plugin(sql.FieldEQ(FieldCreatedAt, v))
@@ -736,6 +751,186 @@ func RatingNotNil() predicate.Plugin {
 	return predicate.Plugin(sql.FieldNotNull(FieldRating))
 }
 
+// SourceTypeEQ applies the EQ predicate on the "source_type" field.
+func SourceTypeEQ(v SourceType) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEQ(FieldSourceType, v))
+}
+
+// SourceTypeNEQ applies the NEQ predicate on the "source_type" field.
+func SourceTypeNEQ(v SourceType) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNEQ(FieldSourceType, v))
+}
+
+// SourceTypeIn applies the In predicate on the "source_type" field.
+func SourceTypeIn(vs ...SourceType) predicate.Plugin {
+	return predicate.Plugin(sql.FieldIn(FieldSourceType, vs...))
+}
+
+// SourceTypeNotIn applies the NotIn predicate on the "source_type" field.
+func SourceTypeNotIn(vs ...SourceType) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNotIn(FieldSourceType, vs...))
+}
+
+// GithubRepoURLEQ applies the EQ predicate on the "github_repo_url" field.
+func GithubRepoURLEQ(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEQ(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLNEQ applies the NEQ predicate on the "github_repo_url" field.
+func GithubRepoURLNEQ(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNEQ(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLIn applies the In predicate on the "github_repo_url" field.
+func GithubRepoURLIn(vs ...string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldIn(FieldGithubRepoURL, vs...))
+}
+
+// GithubRepoURLNotIn applies the NotIn predicate on the "github_repo_url" field.
+func GithubRepoURLNotIn(vs ...string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNotIn(FieldGithubRepoURL, vs...))
+}
+
+// GithubRepoURLGT applies the GT predicate on the "github_repo_url" field.
+func GithubRepoURLGT(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldGT(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLGTE applies the GTE predicate on the "github_repo_url" field.
+func GithubRepoURLGTE(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldGTE(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLLT applies the LT predicate on the "github_repo_url" field.
+func GithubRepoURLLT(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldLT(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLLTE applies the LTE predicate on the "github_repo_url" field.
+func GithubRepoURLLTE(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldLTE(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLContains applies the Contains predicate on the "github_repo_url" field.
+func GithubRepoURLContains(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldContains(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLHasPrefix applies the HasPrefix predicate on the "github_repo_url" field.
+func GithubRepoURLHasPrefix(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldHasPrefix(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLHasSuffix applies the HasSuffix predicate on the "github_repo_url" field.
+func GithubRepoURLHasSuffix(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldHasSuffix(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLIsNil applies the IsNil predicate on the "github_repo_url" field.
+func GithubRepoURLIsNil() predicate.Plugin {
+	return predicate.Plugin(sql.FieldIsNull(FieldGithubRepoURL))
+}
+
+// GithubRepoURLNotNil applies the NotNil predicate on the "github_repo_url" field.
+func GithubRepoURLNotNil() predicate.Plugin {
+	return predicate.Plugin(sql.FieldNotNull(FieldGithubRepoURL))
+}
+
+// GithubRepoURLEqualFold applies the EqualFold predicate on the "github_repo_url" field.
+func GithubRepoURLEqualFold(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEqualFold(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLContainsFold applies the ContainsFold predicate on the "github_repo_url" field.
+func GithubRepoURLContainsFold(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldContainsFold(FieldGithubRepoURL, v))
+}
+
+// GithubRepoNormalizedEQ applies the EQ predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedEQ(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEQ(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedNEQ applies the NEQ predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedNEQ(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNEQ(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedIn applies the In predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedIn(vs ...string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldIn(FieldGithubRepoNormalized, vs...))
+}
+
+// GithubRepoNormalizedNotIn applies the NotIn predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedNotIn(vs ...string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNotIn(FieldGithubRepoNormalized, vs...))
+}
+
+// GithubRepoNormalizedGT applies the GT predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedGT(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldGT(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedGTE applies the GTE predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedGTE(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldGTE(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedLT applies the LT predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedLT(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldLT(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedLTE applies the LTE predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedLTE(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldLTE(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedContains applies the Contains predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedContains(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldContains(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedHasPrefix applies the HasPrefix predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedHasPrefix(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldHasPrefix(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedHasSuffix applies the HasSuffix predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedHasSuffix(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldHasSuffix(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedIsNil applies the IsNil predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedIsNil() predicate.Plugin {
+	return predicate.Plugin(sql.FieldIsNull(FieldGithubRepoNormalized))
+}
+
+// GithubRepoNormalizedNotNil applies the NotNil predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedNotNil() predicate.Plugin {
+	return predicate.Plugin(sql.FieldNotNull(FieldGithubRepoNormalized))
+}
+
+// GithubRepoNormalizedEqualFold applies the EqualFold predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedEqualFold(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEqualFold(FieldGithubRepoNormalized, v))
+}
+
+// GithubRepoNormalizedContainsFold applies the ContainsFold predicate on the "github_repo_normalized" field.
+func GithubRepoNormalizedContainsFold(v string) predicate.Plugin {
+	return predicate.Plugin(sql.FieldContainsFold(FieldGithubRepoNormalized, v))
+}
+
+// AutoUpgradeEnabledEQ applies the EQ predicate on the "auto_upgrade_enabled" field.
+func AutoUpgradeEnabledEQ(v bool) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEQ(FieldAutoUpgradeEnabled, v))
+}
+
+// AutoUpgradeEnabledNEQ applies the NEQ predicate on the "auto_upgrade_enabled" field.
+func AutoUpgradeEnabledNEQ(v bool) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNEQ(FieldAutoUpgradeEnabled, v))
+}
+
 // StatusEQ applies the EQ predicate on the "status" field.
 func StatusEQ(v Status) predicate.Plugin {
 	return predicate.Plugin(sql.FieldEQ(FieldStatus, v))
@@ -897,6 +1092,29 @@ func HasDownloadLogs() predicate.Plugin {
 func HasDownloadLogsWith(preds ...predicate.DownloadLog) predicate.Plugin {
 	return predicate.Plugin(func(s *sql.Selector) {
 		step := newDownloadLogsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasSyncJobs applies the HasEdge predicate on the "sync_jobs" edge.
+func HasSyncJobs() predicate.Plugin {
+	return predicate.Plugin(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SyncJobsTable, SyncJobsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSyncJobsWith applies the HasEdge predicate on the "sync_jobs" edge with a given conditions (other predicates).
+func HasSyncJobsWith(preds ...predicate.SyncJob) predicate.Plugin {
+	return predicate.Plugin(func(s *sql.Selector) {
+		step := newSyncJobsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

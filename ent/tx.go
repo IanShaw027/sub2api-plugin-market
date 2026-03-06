@@ -22,6 +22,8 @@ type Tx struct {
 	PluginVersion *PluginVersionClient
 	// Submission is the client for interacting with the Submission builders.
 	Submission *SubmissionClient
+	// SyncJob is the client for interacting with the SyncJob builders.
+	SyncJob *SyncJobClient
 	// TrustKey is the client for interacting with the TrustKey builders.
 	TrustKey *TrustKeyClient
 
@@ -160,6 +162,7 @@ func (tx *Tx) init() {
 	tx.Plugin = NewPluginClient(tx.config)
 	tx.PluginVersion = NewPluginVersionClient(tx.config)
 	tx.Submission = NewSubmissionClient(tx.config)
+	tx.SyncJob = NewSyncJobClient(tx.config)
 	tx.TrustKey = NewTrustKeyClient(tx.config)
 }
 

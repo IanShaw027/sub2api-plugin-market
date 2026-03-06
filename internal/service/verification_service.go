@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 
 	"github.com/IanShaw027/sub2api-pluginsign"
@@ -35,12 +36,12 @@ func NewVerificationService(trustKeyRepo *repository.TrustKeyRepository, hostRun
 	for _, key := range keys {
 		pubKey, err := decodePublicKey(key.PublicKey)
 		if err != nil {
-			fmt.Printf("failed to decode public key %s: %v\n", key.KeyID, err)
+			slog.Warn("failed to decode public key", "key_id", key.KeyID, "error", err)
 			continue
 		}
 
 		if err := trustStore.AddTrustedKey(key.KeyID, pubKey); err != nil {
-			fmt.Printf("failed to add trusted key %s: %v\n", key.KeyID, err)
+			slog.Warn("failed to add trusted key", "key_id", key.KeyID, "error", err)
 			continue
 		}
 

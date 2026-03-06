@@ -76,6 +76,16 @@ func Notes(v string) predicate.Submission {
 	return predicate.Submission(sql.FieldEQ(FieldNotes, v))
 }
 
+// GithubRepoURL applies equality check predicate on the "github_repo_url" field. It's identical to GithubRepoURLEQ.
+func GithubRepoURL(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldEQ(FieldGithubRepoURL, v))
+}
+
+// AutoUpgradeEnabled applies equality check predicate on the "auto_upgrade_enabled" field. It's identical to AutoUpgradeEnabledEQ.
+func AutoUpgradeEnabled(v bool) predicate.Submission {
+	return predicate.Submission(sql.FieldEQ(FieldAutoUpgradeEnabled, v))
+}
+
 // ReviewerNotes applies equality check predicate on the "reviewer_notes" field. It's identical to ReviewerNotesEQ.
 func ReviewerNotes(v string) predicate.Submission {
 	return predicate.Submission(sql.FieldEQ(FieldReviewerNotes, v))
@@ -344,6 +354,111 @@ func NotesEqualFold(v string) predicate.Submission {
 // NotesContainsFold applies the ContainsFold predicate on the "notes" field.
 func NotesContainsFold(v string) predicate.Submission {
 	return predicate.Submission(sql.FieldContainsFold(FieldNotes, v))
+}
+
+// SourceTypeEQ applies the EQ predicate on the "source_type" field.
+func SourceTypeEQ(v SourceType) predicate.Submission {
+	return predicate.Submission(sql.FieldEQ(FieldSourceType, v))
+}
+
+// SourceTypeNEQ applies the NEQ predicate on the "source_type" field.
+func SourceTypeNEQ(v SourceType) predicate.Submission {
+	return predicate.Submission(sql.FieldNEQ(FieldSourceType, v))
+}
+
+// SourceTypeIn applies the In predicate on the "source_type" field.
+func SourceTypeIn(vs ...SourceType) predicate.Submission {
+	return predicate.Submission(sql.FieldIn(FieldSourceType, vs...))
+}
+
+// SourceTypeNotIn applies the NotIn predicate on the "source_type" field.
+func SourceTypeNotIn(vs ...SourceType) predicate.Submission {
+	return predicate.Submission(sql.FieldNotIn(FieldSourceType, vs...))
+}
+
+// GithubRepoURLEQ applies the EQ predicate on the "github_repo_url" field.
+func GithubRepoURLEQ(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldEQ(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLNEQ applies the NEQ predicate on the "github_repo_url" field.
+func GithubRepoURLNEQ(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldNEQ(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLIn applies the In predicate on the "github_repo_url" field.
+func GithubRepoURLIn(vs ...string) predicate.Submission {
+	return predicate.Submission(sql.FieldIn(FieldGithubRepoURL, vs...))
+}
+
+// GithubRepoURLNotIn applies the NotIn predicate on the "github_repo_url" field.
+func GithubRepoURLNotIn(vs ...string) predicate.Submission {
+	return predicate.Submission(sql.FieldNotIn(FieldGithubRepoURL, vs...))
+}
+
+// GithubRepoURLGT applies the GT predicate on the "github_repo_url" field.
+func GithubRepoURLGT(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldGT(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLGTE applies the GTE predicate on the "github_repo_url" field.
+func GithubRepoURLGTE(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldGTE(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLLT applies the LT predicate on the "github_repo_url" field.
+func GithubRepoURLLT(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldLT(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLLTE applies the LTE predicate on the "github_repo_url" field.
+func GithubRepoURLLTE(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldLTE(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLContains applies the Contains predicate on the "github_repo_url" field.
+func GithubRepoURLContains(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldContains(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLHasPrefix applies the HasPrefix predicate on the "github_repo_url" field.
+func GithubRepoURLHasPrefix(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldHasPrefix(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLHasSuffix applies the HasSuffix predicate on the "github_repo_url" field.
+func GithubRepoURLHasSuffix(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldHasSuffix(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLIsNil applies the IsNil predicate on the "github_repo_url" field.
+func GithubRepoURLIsNil() predicate.Submission {
+	return predicate.Submission(sql.FieldIsNull(FieldGithubRepoURL))
+}
+
+// GithubRepoURLNotNil applies the NotNil predicate on the "github_repo_url" field.
+func GithubRepoURLNotNil() predicate.Submission {
+	return predicate.Submission(sql.FieldNotNull(FieldGithubRepoURL))
+}
+
+// GithubRepoURLEqualFold applies the EqualFold predicate on the "github_repo_url" field.
+func GithubRepoURLEqualFold(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldEqualFold(FieldGithubRepoURL, v))
+}
+
+// GithubRepoURLContainsFold applies the ContainsFold predicate on the "github_repo_url" field.
+func GithubRepoURLContainsFold(v string) predicate.Submission {
+	return predicate.Submission(sql.FieldContainsFold(FieldGithubRepoURL, v))
+}
+
+// AutoUpgradeEnabledEQ applies the EQ predicate on the "auto_upgrade_enabled" field.
+func AutoUpgradeEnabledEQ(v bool) predicate.Submission {
+	return predicate.Submission(sql.FieldEQ(FieldAutoUpgradeEnabled, v))
+}
+
+// AutoUpgradeEnabledNEQ applies the NEQ predicate on the "auto_upgrade_enabled" field.
+func AutoUpgradeEnabledNEQ(v bool) predicate.Submission {
+	return predicate.Submission(sql.FieldNEQ(FieldAutoUpgradeEnabled, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

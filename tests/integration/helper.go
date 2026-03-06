@@ -59,13 +59,17 @@ func SetupTestContext(t *testing.T) *TestContext {
 	pluginHandler := handler.NewPluginHandler(pluginService)
 	downloadHandler := handler.NewDownloadHandler(downloadService)
 	trustKeyHandler := handler.NewTrustKeyHandler(trustKeyService)
+	submissionService := service.NewSubmissionService(client)
+	syncService := service.NewSyncService(client)
+	submissionHandler := handler.NewSubmissionHandler(submissionService)
+	githubWebhookHandler := handler.NewGitHubWebhookHandler(syncService, "", 1, 1)
 
 	// 设置 Gin 为测试模式
 	gin.SetMode(gin.TestMode)
 
 	// 创建路由
 	router := gin.New()
-	v1.RegisterRoutes(router, pluginHandler, downloadHandler, trustKeyHandler)
+	v1.RegisterRoutes(router, pluginHandler, downloadHandler, trustKeyHandler, submissionHandler, githubWebhookHandler)
 
 	return &TestContext{
 		Client:          client,

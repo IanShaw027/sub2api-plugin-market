@@ -61,6 +61,48 @@ func (_c *SubmissionCreate) SetNillableNotes(v *string) *SubmissionCreate {
 	return _c
 }
 
+// SetSourceType sets the "source_type" field.
+func (_c *SubmissionCreate) SetSourceType(v submission.SourceType) *SubmissionCreate {
+	_c.mutation.SetSourceType(v)
+	return _c
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_c *SubmissionCreate) SetNillableSourceType(v *submission.SourceType) *SubmissionCreate {
+	if v != nil {
+		_c.SetSourceType(*v)
+	}
+	return _c
+}
+
+// SetGithubRepoURL sets the "github_repo_url" field.
+func (_c *SubmissionCreate) SetGithubRepoURL(v string) *SubmissionCreate {
+	_c.mutation.SetGithubRepoURL(v)
+	return _c
+}
+
+// SetNillableGithubRepoURL sets the "github_repo_url" field if the given value is not nil.
+func (_c *SubmissionCreate) SetNillableGithubRepoURL(v *string) *SubmissionCreate {
+	if v != nil {
+		_c.SetGithubRepoURL(*v)
+	}
+	return _c
+}
+
+// SetAutoUpgradeEnabled sets the "auto_upgrade_enabled" field.
+func (_c *SubmissionCreate) SetAutoUpgradeEnabled(v bool) *SubmissionCreate {
+	_c.mutation.SetAutoUpgradeEnabled(v)
+	return _c
+}
+
+// SetNillableAutoUpgradeEnabled sets the "auto_upgrade_enabled" field if the given value is not nil.
+func (_c *SubmissionCreate) SetNillableAutoUpgradeEnabled(v *bool) *SubmissionCreate {
+	if v != nil {
+		_c.SetAutoUpgradeEnabled(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *SubmissionCreate) SetStatus(v submission.Status) *SubmissionCreate {
 	_c.mutation.SetStatus(v)
@@ -218,6 +260,14 @@ func (_c *SubmissionCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *SubmissionCreate) defaults() {
+	if _, ok := _c.mutation.SourceType(); !ok {
+		v := submission.DefaultSourceType
+		_c.mutation.SetSourceType(v)
+	}
+	if _, ok := _c.mutation.AutoUpgradeEnabled(); !ok {
+		v := submission.DefaultAutoUpgradeEnabled
+		_c.mutation.SetAutoUpgradeEnabled(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := submission.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -264,6 +314,17 @@ func (_c *SubmissionCreate) check() error {
 		if err := submission.SubmitterNameValidator(v); err != nil {
 			return &ValidationError{Name: "submitter_name", err: fmt.Errorf(`ent: validator failed for field "Submission.submitter_name": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.SourceType(); !ok {
+		return &ValidationError{Name: "source_type", err: errors.New(`ent: missing required field "Submission.source_type"`)}
+	}
+	if v, ok := _c.mutation.SourceType(); ok {
+		if err := submission.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "Submission.source_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.AutoUpgradeEnabled(); !ok {
+		return &ValidationError{Name: "auto_upgrade_enabled", err: errors.New(`ent: missing required field "Submission.auto_upgrade_enabled"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Submission.status"`)}
@@ -332,6 +393,18 @@ func (_c *SubmissionCreate) createSpec() (*Submission, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Notes(); ok {
 		_spec.SetField(submission.FieldNotes, field.TypeString, value)
 		_node.Notes = value
+	}
+	if value, ok := _c.mutation.SourceType(); ok {
+		_spec.SetField(submission.FieldSourceType, field.TypeEnum, value)
+		_node.SourceType = value
+	}
+	if value, ok := _c.mutation.GithubRepoURL(); ok {
+		_spec.SetField(submission.FieldGithubRepoURL, field.TypeString, value)
+		_node.GithubRepoURL = value
+	}
+	if value, ok := _c.mutation.AutoUpgradeEnabled(); ok {
+		_spec.SetField(submission.FieldAutoUpgradeEnabled, field.TypeBool, value)
+		_node.AutoUpgradeEnabled = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(submission.FieldStatus, field.TypeEnum, value)

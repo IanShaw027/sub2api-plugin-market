@@ -107,6 +107,54 @@ func (_u *SubmissionUpdate) ClearNotes() *SubmissionUpdate {
 	return _u
 }
 
+// SetSourceType sets the "source_type" field.
+func (_u *SubmissionUpdate) SetSourceType(v submission.SourceType) *SubmissionUpdate {
+	_u.mutation.SetSourceType(v)
+	return _u
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_u *SubmissionUpdate) SetNillableSourceType(v *submission.SourceType) *SubmissionUpdate {
+	if v != nil {
+		_u.SetSourceType(*v)
+	}
+	return _u
+}
+
+// SetGithubRepoURL sets the "github_repo_url" field.
+func (_u *SubmissionUpdate) SetGithubRepoURL(v string) *SubmissionUpdate {
+	_u.mutation.SetGithubRepoURL(v)
+	return _u
+}
+
+// SetNillableGithubRepoURL sets the "github_repo_url" field if the given value is not nil.
+func (_u *SubmissionUpdate) SetNillableGithubRepoURL(v *string) *SubmissionUpdate {
+	if v != nil {
+		_u.SetGithubRepoURL(*v)
+	}
+	return _u
+}
+
+// ClearGithubRepoURL clears the value of the "github_repo_url" field.
+func (_u *SubmissionUpdate) ClearGithubRepoURL() *SubmissionUpdate {
+	_u.mutation.ClearGithubRepoURL()
+	return _u
+}
+
+// SetAutoUpgradeEnabled sets the "auto_upgrade_enabled" field.
+func (_u *SubmissionUpdate) SetAutoUpgradeEnabled(v bool) *SubmissionUpdate {
+	_u.mutation.SetAutoUpgradeEnabled(v)
+	return _u
+}
+
+// SetNillableAutoUpgradeEnabled sets the "auto_upgrade_enabled" field if the given value is not nil.
+func (_u *SubmissionUpdate) SetNillableAutoUpgradeEnabled(v *bool) *SubmissionUpdate {
+	if v != nil {
+		_u.SetAutoUpgradeEnabled(*v)
+	}
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *SubmissionUpdate) SetStatus(v submission.Status) *SubmissionUpdate {
 	_u.mutation.SetStatus(v)
@@ -281,6 +329,11 @@ func (_u *SubmissionUpdate) check() error {
 			return &ValidationError{Name: "submitter_name", err: fmt.Errorf(`ent: validator failed for field "Submission.submitter_name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SourceType(); ok {
+		if err := submission.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "Submission.source_type": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := submission.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Submission.status": %w`, err)}
@@ -318,6 +371,18 @@ func (_u *SubmissionUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if _u.mutation.NotesCleared() {
 		_spec.ClearField(submission.FieldNotes, field.TypeString)
+	}
+	if value, ok := _u.mutation.SourceType(); ok {
+		_spec.SetField(submission.FieldSourceType, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.GithubRepoURL(); ok {
+		_spec.SetField(submission.FieldGithubRepoURL, field.TypeString, value)
+	}
+	if _u.mutation.GithubRepoURLCleared() {
+		_spec.ClearField(submission.FieldGithubRepoURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.AutoUpgradeEnabled(); ok {
+		_spec.SetField(submission.FieldAutoUpgradeEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(submission.FieldStatus, field.TypeEnum, value)
@@ -494,6 +559,54 @@ func (_u *SubmissionUpdateOne) SetNillableNotes(v *string) *SubmissionUpdateOne 
 // ClearNotes clears the value of the "notes" field.
 func (_u *SubmissionUpdateOne) ClearNotes() *SubmissionUpdateOne {
 	_u.mutation.ClearNotes()
+	return _u
+}
+
+// SetSourceType sets the "source_type" field.
+func (_u *SubmissionUpdateOne) SetSourceType(v submission.SourceType) *SubmissionUpdateOne {
+	_u.mutation.SetSourceType(v)
+	return _u
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_u *SubmissionUpdateOne) SetNillableSourceType(v *submission.SourceType) *SubmissionUpdateOne {
+	if v != nil {
+		_u.SetSourceType(*v)
+	}
+	return _u
+}
+
+// SetGithubRepoURL sets the "github_repo_url" field.
+func (_u *SubmissionUpdateOne) SetGithubRepoURL(v string) *SubmissionUpdateOne {
+	_u.mutation.SetGithubRepoURL(v)
+	return _u
+}
+
+// SetNillableGithubRepoURL sets the "github_repo_url" field if the given value is not nil.
+func (_u *SubmissionUpdateOne) SetNillableGithubRepoURL(v *string) *SubmissionUpdateOne {
+	if v != nil {
+		_u.SetGithubRepoURL(*v)
+	}
+	return _u
+}
+
+// ClearGithubRepoURL clears the value of the "github_repo_url" field.
+func (_u *SubmissionUpdateOne) ClearGithubRepoURL() *SubmissionUpdateOne {
+	_u.mutation.ClearGithubRepoURL()
+	return _u
+}
+
+// SetAutoUpgradeEnabled sets the "auto_upgrade_enabled" field.
+func (_u *SubmissionUpdateOne) SetAutoUpgradeEnabled(v bool) *SubmissionUpdateOne {
+	_u.mutation.SetAutoUpgradeEnabled(v)
+	return _u
+}
+
+// SetNillableAutoUpgradeEnabled sets the "auto_upgrade_enabled" field if the given value is not nil.
+func (_u *SubmissionUpdateOne) SetNillableAutoUpgradeEnabled(v *bool) *SubmissionUpdateOne {
+	if v != nil {
+		_u.SetAutoUpgradeEnabled(*v)
+	}
 	return _u
 }
 
@@ -684,6 +797,11 @@ func (_u *SubmissionUpdateOne) check() error {
 			return &ValidationError{Name: "submitter_name", err: fmt.Errorf(`ent: validator failed for field "Submission.submitter_name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SourceType(); ok {
+		if err := submission.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "Submission.source_type": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := submission.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Submission.status": %w`, err)}
@@ -738,6 +856,18 @@ func (_u *SubmissionUpdateOne) sqlSave(ctx context.Context) (_node *Submission, 
 	}
 	if _u.mutation.NotesCleared() {
 		_spec.ClearField(submission.FieldNotes, field.TypeString)
+	}
+	if value, ok := _u.mutation.SourceType(); ok {
+		_spec.SetField(submission.FieldSourceType, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.GithubRepoURL(); ok {
+		_spec.SetField(submission.FieldGithubRepoURL, field.TypeString, value)
+	}
+	if _u.mutation.GithubRepoURLCleared() {
+		_spec.ClearField(submission.FieldGithubRepoURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.AutoUpgradeEnabled(); ok {
+		_spec.SetField(submission.FieldAutoUpgradeEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(submission.FieldStatus, field.TypeEnum, value)

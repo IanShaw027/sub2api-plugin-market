@@ -1,16 +1,18 @@
 package v1
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/handler"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/middleware"
+	"github.com/gin-gonic/gin"
 )
 
 // RegisterRoutes 注册 v1 版本的所有路由
 func RegisterRoutes(r *gin.Engine,
 	pluginHandler *handler.PluginHandler,
 	downloadHandler *handler.DownloadHandler,
-	trustKeyHandler *handler.TrustKeyHandler) {
+	trustKeyHandler *handler.TrustKeyHandler,
+	submissionHandler *handler.SubmissionHandler,
+	githubWebhookHandler *handler.GitHubWebhookHandler) {
 
 	// 注册全局中间件
 	r.Use(middleware.Recovery())
@@ -34,5 +36,11 @@ func RegisterRoutes(r *gin.Engine,
 			trustKeys.GET("", trustKeyHandler.ListTrustKeys)
 			trustKeys.GET("/:key_id", trustKeyHandler.GetTrustKeyDetail)
 		}
+
+		// 开发者提交相关路由
+		v1.POST("/submissions", submissionHandler.CreateSubmission)
+
+		// 集成回调路由
+		v1.POST("/integrations/github/webhook", githubWebhookHandler.HandleGitHubWebhook)
 	}
 }

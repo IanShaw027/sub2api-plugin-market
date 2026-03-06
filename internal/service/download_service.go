@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -55,7 +56,7 @@ func (s *DownloadService) DownloadPlugin(ctx context.Context, pluginName, versio
 	wasmBytes, err := s.loadAndVerifyArtifact(ctx, pv)
 	if err != nil {
 		if logErr := s.recordDownloadLog(ctx, pv, clientIP, userAgent, false, err.Error()); logErr != nil {
-			fmt.Printf("failed to record download log: %v\n", logErr)
+			slog.Error("failed to record download log", "error", logErr)
 		}
 		return nil, nil, err
 	}
@@ -63,13 +64,13 @@ func (s *DownloadService) DownloadPlugin(ctx context.Context, pluginName, versio
 	// 记录下载日志
 	if err := s.recordDownloadLog(ctx, pv, clientIP, userAgent, true, ""); err != nil {
 		// 日志记录失败不影响下载
-		fmt.Printf("failed to record download log: %v\n", err)
+		slog.Error("failed to record download log", "error", err)
 	}
 
 	// 增加下载计数
 	if err := s.pluginRepo.IncrementDownloadCount(ctx, pv.PluginID.String()); err != nil {
 		// 计数失败不影响下载
-		fmt.Printf("failed to increment download count: %v\n", err)
+		slog.Error("failed to increment download count", "error", err)
 	}
 
 	return pv, io.NopCloser(bytes.NewReader(wasmBytes)), nil
@@ -109,7 +110,7 @@ func (s *DownloadService) GetDownloadURL(ctx context.Context, pluginName, versio
 	// 下载前强制校验工件完整性与签名
 	if _, err := s.loadAndVerifyArtifact(ctx, pv); err != nil {
 		if logErr := s.recordDownloadLog(ctx, pv, clientIP, userAgent, false, err.Error()); logErr != nil {
-			fmt.Printf("failed to record download log: %v\n", logErr)
+			slog.Error("failed to record download log", "error", logErr)
 		}
 		return "", err
 	}
@@ -122,12 +123,12 @@ func (s *DownloadService) GetDownloadURL(ctx context.Context, pluginName, versio
 
 	// 记录下载日志
 	if err := s.recordDownloadLog(ctx, pv, clientIP, userAgent, true, ""); err != nil {
-		fmt.Printf("failed to record download log: %v\n", err)
+		slog.Error("failed to record download log", "error", err)
 	}
 
 	// 增加下载计数
 	if err := s.pluginRepo.IncrementDownloadCount(ctx, pv.PluginID.String()); err != nil {
-		fmt.Printf("failed to increment download count: %v\n", err)
+		slog.Error("failed to increment download count", "error", err)
 	}
 
 	return url, nil

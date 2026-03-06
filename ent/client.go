@@ -21,6 +21,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 )
 
@@ -39,6 +40,8 @@ type Client struct {
 	PluginVersion *PluginVersionClient
 	// Submission is the client for interacting with the Submission builders.
 	Submission *SubmissionClient
+	// SyncJob is the client for interacting with the SyncJob builders.
+	SyncJob *SyncJobClient
 	// TrustKey is the client for interacting with the TrustKey builders.
 	TrustKey *TrustKeyClient
 }
@@ -57,6 +60,7 @@ func (c *Client) init() {
 	c.Plugin = NewPluginClient(c.config)
 	c.PluginVersion = NewPluginVersionClient(c.config)
 	c.Submission = NewSubmissionClient(c.config)
+	c.SyncJob = NewSyncJobClient(c.config)
 	c.TrustKey = NewTrustKeyClient(c.config)
 }
 
@@ -155,6 +159,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Plugin:        NewPluginClient(cfg),
 		PluginVersion: NewPluginVersionClient(cfg),
 		Submission:    NewSubmissionClient(cfg),
+		SyncJob:       NewSyncJobClient(cfg),
 		TrustKey:      NewTrustKeyClient(cfg),
 	}, nil
 }
@@ -180,6 +185,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Plugin:        NewPluginClient(cfg),
 		PluginVersion: NewPluginVersionClient(cfg),
 		Submission:    NewSubmissionClient(cfg),
+		SyncJob:       NewSyncJobClient(cfg),
 		TrustKey:      NewTrustKeyClient(cfg),
 	}, nil
 }
@@ -210,7 +216,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.AdminUser, c.DownloadLog, c.Plugin, c.PluginVersion, c.Submission, c.TrustKey,
+		c.AdminUser, c.DownloadLog, c.Plugin, c.PluginVersion, c.Submission, c.SyncJob,
+		c.TrustKey,
 	} {
 		n.Use(hooks...)
 	}
@@ -220,7 +227,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.AdminUser, c.DownloadLog, c.Plugin, c.PluginVersion, c.Submission, c.TrustKey,
+		c.AdminUser, c.DownloadLog, c.Plugin, c.PluginVersion, c.Submission, c.SyncJob,
+		c.TrustKey,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -239,6 +247,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PluginVersion.mutate(ctx, m)
 	case *SubmissionMutation:
 		return c.Submission.mutate(ctx, m)
+	case *SyncJobMutation:
+		return c.SyncJob.mutate(ctx, m)
 	case *TrustKeyMutation:
 		return c.TrustKey.mutate(ctx, m)
 	default:
@@ -684,6 +694,22 @@ func (c *PluginClient) QueryDownloadLogs(_m *Plugin) *DownloadLogQuery {
 	return query
 }
 
+// QuerySyncJobs queries the sync_jobs edge of a Plugin.
+func (c *PluginClient) QuerySyncJobs(_m *Plugin) *SyncJobQuery {
+	query := (&SyncJobClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(plugin.Table, plugin.FieldID, id),
+			sqlgraph.To(syncjob.Table, syncjob.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, plugin.SyncJobsTable, plugin.SyncJobsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *PluginClient) Hooks() []Hook {
 	return c.hooks.Plugin
@@ -1039,6 +1065,155 @@ func (c *SubmissionClient) mutate(ctx context.Context, m *SubmissionMutation) (V
 	}
 }
 
+// SyncJobClient is a client for the SyncJob schema.
+type SyncJobClient struct {
+	config
+}
+
+// NewSyncJobClient returns a client for the SyncJob from the given config.
+func NewSyncJobClient(c config) *SyncJobClient {
+	return &SyncJobClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `syncjob.Hooks(f(g(h())))`.
+func (c *SyncJobClient) Use(hooks ...Hook) {
+	c.hooks.SyncJob = append(c.hooks.SyncJob, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `syncjob.Intercept(f(g(h())))`.
+func (c *SyncJobClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SyncJob = append(c.inters.SyncJob, interceptors...)
+}
+
+// Create returns a builder for creating a SyncJob entity.
+func (c *SyncJobClient) Create() *SyncJobCreate {
+	mutation := newSyncJobMutation(c.config, OpCreate)
+	return &SyncJobCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SyncJob entities.
+func (c *SyncJobClient) CreateBulk(builders ...*SyncJobCreate) *SyncJobCreateBulk {
+	return &SyncJobCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SyncJobClient) MapCreateBulk(slice any, setFunc func(*SyncJobCreate, int)) *SyncJobCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SyncJobCreateBulk{err: fmt.Errorf("calling to SyncJobClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SyncJobCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SyncJobCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SyncJob.
+func (c *SyncJobClient) Update() *SyncJobUpdate {
+	mutation := newSyncJobMutation(c.config, OpUpdate)
+	return &SyncJobUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SyncJobClient) UpdateOne(_m *SyncJob) *SyncJobUpdateOne {
+	mutation := newSyncJobMutation(c.config, OpUpdateOne, withSyncJob(_m))
+	return &SyncJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SyncJobClient) UpdateOneID(id uuid.UUID) *SyncJobUpdateOne {
+	mutation := newSyncJobMutation(c.config, OpUpdateOne, withSyncJobID(id))
+	return &SyncJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SyncJob.
+func (c *SyncJobClient) Delete() *SyncJobDelete {
+	mutation := newSyncJobMutation(c.config, OpDelete)
+	return &SyncJobDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SyncJobClient) DeleteOne(_m *SyncJob) *SyncJobDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SyncJobClient) DeleteOneID(id uuid.UUID) *SyncJobDeleteOne {
+	builder := c.Delete().Where(syncjob.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SyncJobDeleteOne{builder}
+}
+
+// Query returns a query builder for SyncJob.
+func (c *SyncJobClient) Query() *SyncJobQuery {
+	return &SyncJobQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSyncJob},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SyncJob entity by its id.
+func (c *SyncJobClient) Get(ctx context.Context, id uuid.UUID) (*SyncJob, error) {
+	return c.Query().Where(syncjob.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SyncJobClient) GetX(ctx context.Context, id uuid.UUID) *SyncJob {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryPlugin queries the plugin edge of a SyncJob.
+func (c *SyncJobClient) QueryPlugin(_m *SyncJob) *PluginQuery {
+	query := (&PluginClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(syncjob.Table, syncjob.FieldID, id),
+			sqlgraph.To(plugin.Table, plugin.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, syncjob.PluginTable, syncjob.PluginColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SyncJobClient) Hooks() []Hook {
+	return c.hooks.SyncJob
+}
+
+// Interceptors returns the client interceptors.
+func (c *SyncJobClient) Interceptors() []Interceptor {
+	return c.inters.SyncJob
+}
+
+func (c *SyncJobClient) mutate(ctx context.Context, m *SyncJobMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SyncJobCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SyncJobUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SyncJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SyncJobDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SyncJob mutation op: %q", m.Op())
+	}
+}
+
 // TrustKeyClient is a client for the TrustKey schema.
 type TrustKeyClient struct {
 	config
@@ -1175,10 +1350,11 @@ func (c *TrustKeyClient) mutate(ctx context.Context, m *TrustKeyMutation) (Value
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AdminUser, DownloadLog, Plugin, PluginVersion, Submission, TrustKey []ent.Hook
+		AdminUser, DownloadLog, Plugin, PluginVersion, Submission, SyncJob,
+		TrustKey []ent.Hook
 	}
 	inters struct {
-		AdminUser, DownloadLog, Plugin, PluginVersion, Submission,
+		AdminUser, DownloadLog, Plugin, PluginVersion, Submission, SyncJob,
 		TrustKey []ent.Interceptor
 	}
 )

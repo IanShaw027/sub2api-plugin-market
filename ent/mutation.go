@@ -17,6 +17,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 	"github.com/google/uuid"
 )
@@ -35,6 +36,7 @@ const (
 	TypePlugin        = "Plugin"
 	TypePluginVersion = "PluginVersion"
 	TypeSubmission    = "Submission"
+	TypeSyncJob       = "SyncJob"
 	TypeTrustKey      = "TrustKey"
 )
 
@@ -1597,41 +1599,48 @@ func (m *DownloadLogMutation) ResetEdge(name string) error {
 // PluginMutation represents an operation that mutates the Plugin nodes in the graph.
 type PluginMutation struct {
 	config
-	op                   Op
-	typ                  string
-	id                   *uuid.UUID
-	name                 *string
-	display_name         *string
-	description          *string
-	author               *string
-	repository_url       *string
-	homepage_url         *string
-	license              *string
-	category             *plugin.Category
-	tags                 *[]string
-	appendtags           []string
-	is_official          *bool
-	is_verified          *bool
-	download_count       *int
-	adddownload_count    *int
-	rating               *float64
-	addrating            *float64
-	status               *plugin.Status
-	created_at           *time.Time
-	updated_at           *time.Time
-	clearedFields        map[string]struct{}
-	versions             map[uuid.UUID]struct{}
-	removedversions      map[uuid.UUID]struct{}
-	clearedversions      bool
-	submissions          map[uuid.UUID]struct{}
-	removedsubmissions   map[uuid.UUID]struct{}
-	clearedsubmissions   bool
-	download_logs        map[uuid.UUID]struct{}
-	removeddownload_logs map[uuid.UUID]struct{}
-	cleareddownload_logs bool
-	done                 bool
-	oldValue             func(context.Context) (*Plugin, error)
-	predicates           []predicate.Plugin
+	op                     Op
+	typ                    string
+	id                     *uuid.UUID
+	name                   *string
+	display_name           *string
+	description            *string
+	author                 *string
+	repository_url         *string
+	homepage_url           *string
+	license                *string
+	category               *plugin.Category
+	tags                   *[]string
+	appendtags             []string
+	is_official            *bool
+	is_verified            *bool
+	download_count         *int
+	adddownload_count      *int
+	rating                 *float64
+	addrating              *float64
+	source_type            *plugin.SourceType
+	github_repo_url        *string
+	github_repo_normalized *string
+	auto_upgrade_enabled   *bool
+	status                 *plugin.Status
+	created_at             *time.Time
+	updated_at             *time.Time
+	clearedFields          map[string]struct{}
+	versions               map[uuid.UUID]struct{}
+	removedversions        map[uuid.UUID]struct{}
+	clearedversions        bool
+	submissions            map[uuid.UUID]struct{}
+	removedsubmissions     map[uuid.UUID]struct{}
+	clearedsubmissions     bool
+	download_logs          map[uuid.UUID]struct{}
+	removeddownload_logs   map[uuid.UUID]struct{}
+	cleareddownload_logs   bool
+	sync_jobs              map[uuid.UUID]struct{}
+	removedsync_jobs       map[uuid.UUID]struct{}
+	clearedsync_jobs       bool
+	done                   bool
+	oldValue               func(context.Context) (*Plugin, error)
+	predicates             []predicate.Plugin
 }
 
 var _ ent.Mutation = (*PluginMutation)(nil)
@@ -2315,6 +2324,176 @@ func (m *PluginMutation) ResetRating() {
 	delete(m.clearedFields, plugin.FieldRating)
 }
 
+// SetSourceType sets the "source_type" field.
+func (m *PluginMutation) SetSourceType(pt plugin.SourceType) {
+	m.source_type = &pt
+}
+
+// SourceType returns the value of the "source_type" field in the mutation.
+func (m *PluginMutation) SourceType() (r plugin.SourceType, exists bool) {
+	v := m.source_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceType returns the old "source_type" field's value of the Plugin entity.
+// If the Plugin object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PluginMutation) OldSourceType(ctx context.Context) (v plugin.SourceType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceType: %w", err)
+	}
+	return oldValue.SourceType, nil
+}
+
+// ResetSourceType resets all changes to the "source_type" field.
+func (m *PluginMutation) ResetSourceType() {
+	m.source_type = nil
+}
+
+// SetGithubRepoURL sets the "github_repo_url" field.
+func (m *PluginMutation) SetGithubRepoURL(s string) {
+	m.github_repo_url = &s
+}
+
+// GithubRepoURL returns the value of the "github_repo_url" field in the mutation.
+func (m *PluginMutation) GithubRepoURL() (r string, exists bool) {
+	v := m.github_repo_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGithubRepoURL returns the old "github_repo_url" field's value of the Plugin entity.
+// If the Plugin object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PluginMutation) OldGithubRepoURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGithubRepoURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGithubRepoURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGithubRepoURL: %w", err)
+	}
+	return oldValue.GithubRepoURL, nil
+}
+
+// ClearGithubRepoURL clears the value of the "github_repo_url" field.
+func (m *PluginMutation) ClearGithubRepoURL() {
+	m.github_repo_url = nil
+	m.clearedFields[plugin.FieldGithubRepoURL] = struct{}{}
+}
+
+// GithubRepoURLCleared returns if the "github_repo_url" field was cleared in this mutation.
+func (m *PluginMutation) GithubRepoURLCleared() bool {
+	_, ok := m.clearedFields[plugin.FieldGithubRepoURL]
+	return ok
+}
+
+// ResetGithubRepoURL resets all changes to the "github_repo_url" field.
+func (m *PluginMutation) ResetGithubRepoURL() {
+	m.github_repo_url = nil
+	delete(m.clearedFields, plugin.FieldGithubRepoURL)
+}
+
+// SetGithubRepoNormalized sets the "github_repo_normalized" field.
+func (m *PluginMutation) SetGithubRepoNormalized(s string) {
+	m.github_repo_normalized = &s
+}
+
+// GithubRepoNormalized returns the value of the "github_repo_normalized" field in the mutation.
+func (m *PluginMutation) GithubRepoNormalized() (r string, exists bool) {
+	v := m.github_repo_normalized
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGithubRepoNormalized returns the old "github_repo_normalized" field's value of the Plugin entity.
+// If the Plugin object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PluginMutation) OldGithubRepoNormalized(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGithubRepoNormalized is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGithubRepoNormalized requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGithubRepoNormalized: %w", err)
+	}
+	return oldValue.GithubRepoNormalized, nil
+}
+
+// ClearGithubRepoNormalized clears the value of the "github_repo_normalized" field.
+func (m *PluginMutation) ClearGithubRepoNormalized() {
+	m.github_repo_normalized = nil
+	m.clearedFields[plugin.FieldGithubRepoNormalized] = struct{}{}
+}
+
+// GithubRepoNormalizedCleared returns if the "github_repo_normalized" field was cleared in this mutation.
+func (m *PluginMutation) GithubRepoNormalizedCleared() bool {
+	_, ok := m.clearedFields[plugin.FieldGithubRepoNormalized]
+	return ok
+}
+
+// ResetGithubRepoNormalized resets all changes to the "github_repo_normalized" field.
+func (m *PluginMutation) ResetGithubRepoNormalized() {
+	m.github_repo_normalized = nil
+	delete(m.clearedFields, plugin.FieldGithubRepoNormalized)
+}
+
+// SetAutoUpgradeEnabled sets the "auto_upgrade_enabled" field.
+func (m *PluginMutation) SetAutoUpgradeEnabled(b bool) {
+	m.auto_upgrade_enabled = &b
+}
+
+// AutoUpgradeEnabled returns the value of the "auto_upgrade_enabled" field in the mutation.
+func (m *PluginMutation) AutoUpgradeEnabled() (r bool, exists bool) {
+	v := m.auto_upgrade_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAutoUpgradeEnabled returns the old "auto_upgrade_enabled" field's value of the Plugin entity.
+// If the Plugin object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PluginMutation) OldAutoUpgradeEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAutoUpgradeEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAutoUpgradeEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAutoUpgradeEnabled: %w", err)
+	}
+	return oldValue.AutoUpgradeEnabled, nil
+}
+
+// ResetAutoUpgradeEnabled resets all changes to the "auto_upgrade_enabled" field.
+func (m *PluginMutation) ResetAutoUpgradeEnabled() {
+	m.auto_upgrade_enabled = nil
+}
+
 // SetStatus sets the "status" field.
 func (m *PluginMutation) SetStatus(pl plugin.Status) {
 	m.status = &pl
@@ -2585,6 +2764,60 @@ func (m *PluginMutation) ResetDownloadLogs() {
 	m.removeddownload_logs = nil
 }
 
+// AddSyncJobIDs adds the "sync_jobs" edge to the SyncJob entity by ids.
+func (m *PluginMutation) AddSyncJobIDs(ids ...uuid.UUID) {
+	if m.sync_jobs == nil {
+		m.sync_jobs = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.sync_jobs[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSyncJobs clears the "sync_jobs" edge to the SyncJob entity.
+func (m *PluginMutation) ClearSyncJobs() {
+	m.clearedsync_jobs = true
+}
+
+// SyncJobsCleared reports if the "sync_jobs" edge to the SyncJob entity was cleared.
+func (m *PluginMutation) SyncJobsCleared() bool {
+	return m.clearedsync_jobs
+}
+
+// RemoveSyncJobIDs removes the "sync_jobs" edge to the SyncJob entity by IDs.
+func (m *PluginMutation) RemoveSyncJobIDs(ids ...uuid.UUID) {
+	if m.removedsync_jobs == nil {
+		m.removedsync_jobs = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.sync_jobs, ids[i])
+		m.removedsync_jobs[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSyncJobs returns the removed IDs of the "sync_jobs" edge to the SyncJob entity.
+func (m *PluginMutation) RemovedSyncJobsIDs() (ids []uuid.UUID) {
+	for id := range m.removedsync_jobs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SyncJobsIDs returns the "sync_jobs" edge IDs in the mutation.
+func (m *PluginMutation) SyncJobsIDs() (ids []uuid.UUID) {
+	for id := range m.sync_jobs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSyncJobs resets all changes to the "sync_jobs" edge.
+func (m *PluginMutation) ResetSyncJobs() {
+	m.sync_jobs = nil
+	m.clearedsync_jobs = false
+	m.removedsync_jobs = nil
+}
+
 // Where appends a list predicates to the PluginMutation builder.
 func (m *PluginMutation) Where(ps ...predicate.Plugin) {
 	m.predicates = append(m.predicates, ps...)
@@ -2619,7 +2852,7 @@ func (m *PluginMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PluginMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 20)
 	if m.name != nil {
 		fields = append(fields, plugin.FieldName)
 	}
@@ -2658,6 +2891,18 @@ func (m *PluginMutation) Fields() []string {
 	}
 	if m.rating != nil {
 		fields = append(fields, plugin.FieldRating)
+	}
+	if m.source_type != nil {
+		fields = append(fields, plugin.FieldSourceType)
+	}
+	if m.github_repo_url != nil {
+		fields = append(fields, plugin.FieldGithubRepoURL)
+	}
+	if m.github_repo_normalized != nil {
+		fields = append(fields, plugin.FieldGithubRepoNormalized)
+	}
+	if m.auto_upgrade_enabled != nil {
+		fields = append(fields, plugin.FieldAutoUpgradeEnabled)
 	}
 	if m.status != nil {
 		fields = append(fields, plugin.FieldStatus)
@@ -2702,6 +2947,14 @@ func (m *PluginMutation) Field(name string) (ent.Value, bool) {
 		return m.DownloadCount()
 	case plugin.FieldRating:
 		return m.Rating()
+	case plugin.FieldSourceType:
+		return m.SourceType()
+	case plugin.FieldGithubRepoURL:
+		return m.GithubRepoURL()
+	case plugin.FieldGithubRepoNormalized:
+		return m.GithubRepoNormalized()
+	case plugin.FieldAutoUpgradeEnabled:
+		return m.AutoUpgradeEnabled()
 	case plugin.FieldStatus:
 		return m.Status()
 	case plugin.FieldCreatedAt:
@@ -2743,6 +2996,14 @@ func (m *PluginMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldDownloadCount(ctx)
 	case plugin.FieldRating:
 		return m.OldRating(ctx)
+	case plugin.FieldSourceType:
+		return m.OldSourceType(ctx)
+	case plugin.FieldGithubRepoURL:
+		return m.OldGithubRepoURL(ctx)
+	case plugin.FieldGithubRepoNormalized:
+		return m.OldGithubRepoNormalized(ctx)
+	case plugin.FieldAutoUpgradeEnabled:
+		return m.OldAutoUpgradeEnabled(ctx)
 	case plugin.FieldStatus:
 		return m.OldStatus(ctx)
 	case plugin.FieldCreatedAt:
@@ -2849,6 +3110,34 @@ func (m *PluginMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRating(v)
 		return nil
+	case plugin.FieldSourceType:
+		v, ok := value.(plugin.SourceType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceType(v)
+		return nil
+	case plugin.FieldGithubRepoURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGithubRepoURL(v)
+		return nil
+	case plugin.FieldGithubRepoNormalized:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGithubRepoNormalized(v)
+		return nil
+	case plugin.FieldAutoUpgradeEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAutoUpgradeEnabled(v)
+		return nil
 	case plugin.FieldStatus:
 		v, ok := value.(plugin.Status)
 		if !ok {
@@ -2939,6 +3228,12 @@ func (m *PluginMutation) ClearedFields() []string {
 	if m.FieldCleared(plugin.FieldRating) {
 		fields = append(fields, plugin.FieldRating)
 	}
+	if m.FieldCleared(plugin.FieldGithubRepoURL) {
+		fields = append(fields, plugin.FieldGithubRepoURL)
+	}
+	if m.FieldCleared(plugin.FieldGithubRepoNormalized) {
+		fields = append(fields, plugin.FieldGithubRepoNormalized)
+	}
 	return fields
 }
 
@@ -2964,6 +3259,12 @@ func (m *PluginMutation) ClearField(name string) error {
 		return nil
 	case plugin.FieldRating:
 		m.ClearRating()
+		return nil
+	case plugin.FieldGithubRepoURL:
+		m.ClearGithubRepoURL()
+		return nil
+	case plugin.FieldGithubRepoNormalized:
+		m.ClearGithubRepoNormalized()
 		return nil
 	}
 	return fmt.Errorf("unknown Plugin nullable field %s", name)
@@ -3012,6 +3313,18 @@ func (m *PluginMutation) ResetField(name string) error {
 	case plugin.FieldRating:
 		m.ResetRating()
 		return nil
+	case plugin.FieldSourceType:
+		m.ResetSourceType()
+		return nil
+	case plugin.FieldGithubRepoURL:
+		m.ResetGithubRepoURL()
+		return nil
+	case plugin.FieldGithubRepoNormalized:
+		m.ResetGithubRepoNormalized()
+		return nil
+	case plugin.FieldAutoUpgradeEnabled:
+		m.ResetAutoUpgradeEnabled()
+		return nil
 	case plugin.FieldStatus:
 		m.ResetStatus()
 		return nil
@@ -3027,7 +3340,7 @@ func (m *PluginMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *PluginMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.versions != nil {
 		edges = append(edges, plugin.EdgeVersions)
 	}
@@ -3036,6 +3349,9 @@ func (m *PluginMutation) AddedEdges() []string {
 	}
 	if m.download_logs != nil {
 		edges = append(edges, plugin.EdgeDownloadLogs)
+	}
+	if m.sync_jobs != nil {
+		edges = append(edges, plugin.EdgeSyncJobs)
 	}
 	return edges
 }
@@ -3062,13 +3378,19 @@ func (m *PluginMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case plugin.EdgeSyncJobs:
+		ids := make([]ent.Value, 0, len(m.sync_jobs))
+		for id := range m.sync_jobs {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *PluginMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedversions != nil {
 		edges = append(edges, plugin.EdgeVersions)
 	}
@@ -3077,6 +3399,9 @@ func (m *PluginMutation) RemovedEdges() []string {
 	}
 	if m.removeddownload_logs != nil {
 		edges = append(edges, plugin.EdgeDownloadLogs)
+	}
+	if m.removedsync_jobs != nil {
+		edges = append(edges, plugin.EdgeSyncJobs)
 	}
 	return edges
 }
@@ -3103,13 +3428,19 @@ func (m *PluginMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case plugin.EdgeSyncJobs:
+		ids := make([]ent.Value, 0, len(m.removedsync_jobs))
+		for id := range m.removedsync_jobs {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *PluginMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedversions {
 		edges = append(edges, plugin.EdgeVersions)
 	}
@@ -3118,6 +3449,9 @@ func (m *PluginMutation) ClearedEdges() []string {
 	}
 	if m.cleareddownload_logs {
 		edges = append(edges, plugin.EdgeDownloadLogs)
+	}
+	if m.clearedsync_jobs {
+		edges = append(edges, plugin.EdgeSyncJobs)
 	}
 	return edges
 }
@@ -3132,6 +3466,8 @@ func (m *PluginMutation) EdgeCleared(name string) bool {
 		return m.clearedsubmissions
 	case plugin.EdgeDownloadLogs:
 		return m.cleareddownload_logs
+	case plugin.EdgeSyncJobs:
+		return m.clearedsync_jobs
 	}
 	return false
 }
@@ -3156,6 +3492,9 @@ func (m *PluginMutation) ResetEdge(name string) error {
 		return nil
 	case plugin.EdgeDownloadLogs:
 		m.ResetDownloadLogs()
+		return nil
+	case plugin.EdgeSyncJobs:
+		m.ResetSyncJobs()
 		return nil
 	}
 	return fmt.Errorf("unknown Plugin edge %s", name)
@@ -4570,27 +4909,30 @@ func (m *PluginVersionMutation) ResetEdge(name string) error {
 // SubmissionMutation represents an operation that mutates the Submission nodes in the graph.
 type SubmissionMutation struct {
 	config
-	op              Op
-	typ             string
-	id              *uuid.UUID
-	submission_type *submission.SubmissionType
-	submitter_email *string
-	submitter_name  *string
-	notes           *string
-	status          *submission.Status
-	reviewer_notes  *string
-	reviewed_by     *string
-	reviewed_at     *time.Time
-	created_at      *time.Time
-	updated_at      *time.Time
-	clearedFields   map[string]struct{}
-	plugin          *uuid.UUID
-	clearedplugin   bool
-	version         *uuid.UUID
-	clearedversion  bool
-	done            bool
-	oldValue        func(context.Context) (*Submission, error)
-	predicates      []predicate.Submission
+	op                   Op
+	typ                  string
+	id                   *uuid.UUID
+	submission_type      *submission.SubmissionType
+	submitter_email      *string
+	submitter_name       *string
+	notes                *string
+	source_type          *submission.SourceType
+	github_repo_url      *string
+	auto_upgrade_enabled *bool
+	status               *submission.Status
+	reviewer_notes       *string
+	reviewed_by          *string
+	reviewed_at          *time.Time
+	created_at           *time.Time
+	updated_at           *time.Time
+	clearedFields        map[string]struct{}
+	plugin               *uuid.UUID
+	clearedplugin        bool
+	version              *uuid.UUID
+	clearedversion       bool
+	done                 bool
+	oldValue             func(context.Context) (*Submission, error)
+	predicates           []predicate.Submission
 }
 
 var _ ent.Mutation = (*SubmissionMutation)(nil)
@@ -4888,6 +5230,127 @@ func (m *SubmissionMutation) NotesCleared() bool {
 func (m *SubmissionMutation) ResetNotes() {
 	m.notes = nil
 	delete(m.clearedFields, submission.FieldNotes)
+}
+
+// SetSourceType sets the "source_type" field.
+func (m *SubmissionMutation) SetSourceType(st submission.SourceType) {
+	m.source_type = &st
+}
+
+// SourceType returns the value of the "source_type" field in the mutation.
+func (m *SubmissionMutation) SourceType() (r submission.SourceType, exists bool) {
+	v := m.source_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceType returns the old "source_type" field's value of the Submission entity.
+// If the Submission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubmissionMutation) OldSourceType(ctx context.Context) (v submission.SourceType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceType: %w", err)
+	}
+	return oldValue.SourceType, nil
+}
+
+// ResetSourceType resets all changes to the "source_type" field.
+func (m *SubmissionMutation) ResetSourceType() {
+	m.source_type = nil
+}
+
+// SetGithubRepoURL sets the "github_repo_url" field.
+func (m *SubmissionMutation) SetGithubRepoURL(s string) {
+	m.github_repo_url = &s
+}
+
+// GithubRepoURL returns the value of the "github_repo_url" field in the mutation.
+func (m *SubmissionMutation) GithubRepoURL() (r string, exists bool) {
+	v := m.github_repo_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGithubRepoURL returns the old "github_repo_url" field's value of the Submission entity.
+// If the Submission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubmissionMutation) OldGithubRepoURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGithubRepoURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGithubRepoURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGithubRepoURL: %w", err)
+	}
+	return oldValue.GithubRepoURL, nil
+}
+
+// ClearGithubRepoURL clears the value of the "github_repo_url" field.
+func (m *SubmissionMutation) ClearGithubRepoURL() {
+	m.github_repo_url = nil
+	m.clearedFields[submission.FieldGithubRepoURL] = struct{}{}
+}
+
+// GithubRepoURLCleared returns if the "github_repo_url" field was cleared in this mutation.
+func (m *SubmissionMutation) GithubRepoURLCleared() bool {
+	_, ok := m.clearedFields[submission.FieldGithubRepoURL]
+	return ok
+}
+
+// ResetGithubRepoURL resets all changes to the "github_repo_url" field.
+func (m *SubmissionMutation) ResetGithubRepoURL() {
+	m.github_repo_url = nil
+	delete(m.clearedFields, submission.FieldGithubRepoURL)
+}
+
+// SetAutoUpgradeEnabled sets the "auto_upgrade_enabled" field.
+func (m *SubmissionMutation) SetAutoUpgradeEnabled(b bool) {
+	m.auto_upgrade_enabled = &b
+}
+
+// AutoUpgradeEnabled returns the value of the "auto_upgrade_enabled" field in the mutation.
+func (m *SubmissionMutation) AutoUpgradeEnabled() (r bool, exists bool) {
+	v := m.auto_upgrade_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAutoUpgradeEnabled returns the old "auto_upgrade_enabled" field's value of the Submission entity.
+// If the Submission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubmissionMutation) OldAutoUpgradeEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAutoUpgradeEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAutoUpgradeEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAutoUpgradeEnabled: %w", err)
+	}
+	return oldValue.AutoUpgradeEnabled, nil
+}
+
+// ResetAutoUpgradeEnabled resets all changes to the "auto_upgrade_enabled" field.
+func (m *SubmissionMutation) ResetAutoUpgradeEnabled() {
+	m.auto_upgrade_enabled = nil
 }
 
 // SetStatus sets the "status" field.
@@ -5245,7 +5708,7 @@ func (m *SubmissionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SubmissionMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 14)
 	if m.plugin != nil {
 		fields = append(fields, submission.FieldPluginID)
 	}
@@ -5260,6 +5723,15 @@ func (m *SubmissionMutation) Fields() []string {
 	}
 	if m.notes != nil {
 		fields = append(fields, submission.FieldNotes)
+	}
+	if m.source_type != nil {
+		fields = append(fields, submission.FieldSourceType)
+	}
+	if m.github_repo_url != nil {
+		fields = append(fields, submission.FieldGithubRepoURL)
+	}
+	if m.auto_upgrade_enabled != nil {
+		fields = append(fields, submission.FieldAutoUpgradeEnabled)
 	}
 	if m.status != nil {
 		fields = append(fields, submission.FieldStatus)
@@ -5297,6 +5769,12 @@ func (m *SubmissionMutation) Field(name string) (ent.Value, bool) {
 		return m.SubmitterName()
 	case submission.FieldNotes:
 		return m.Notes()
+	case submission.FieldSourceType:
+		return m.SourceType()
+	case submission.FieldGithubRepoURL:
+		return m.GithubRepoURL()
+	case submission.FieldAutoUpgradeEnabled:
+		return m.AutoUpgradeEnabled()
 	case submission.FieldStatus:
 		return m.Status()
 	case submission.FieldReviewerNotes:
@@ -5328,6 +5806,12 @@ func (m *SubmissionMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldSubmitterName(ctx)
 	case submission.FieldNotes:
 		return m.OldNotes(ctx)
+	case submission.FieldSourceType:
+		return m.OldSourceType(ctx)
+	case submission.FieldGithubRepoURL:
+		return m.OldGithubRepoURL(ctx)
+	case submission.FieldAutoUpgradeEnabled:
+		return m.OldAutoUpgradeEnabled(ctx)
 	case submission.FieldStatus:
 		return m.OldStatus(ctx)
 	case submission.FieldReviewerNotes:
@@ -5383,6 +5867,27 @@ func (m *SubmissionMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetNotes(v)
+		return nil
+	case submission.FieldSourceType:
+		v, ok := value.(submission.SourceType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceType(v)
+		return nil
+	case submission.FieldGithubRepoURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGithubRepoURL(v)
+		return nil
+	case submission.FieldAutoUpgradeEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAutoUpgradeEnabled(v)
 		return nil
 	case submission.FieldStatus:
 		v, ok := value.(submission.Status)
@@ -5459,6 +5964,9 @@ func (m *SubmissionMutation) ClearedFields() []string {
 	if m.FieldCleared(submission.FieldNotes) {
 		fields = append(fields, submission.FieldNotes)
 	}
+	if m.FieldCleared(submission.FieldGithubRepoURL) {
+		fields = append(fields, submission.FieldGithubRepoURL)
+	}
 	if m.FieldCleared(submission.FieldReviewerNotes) {
 		fields = append(fields, submission.FieldReviewerNotes)
 	}
@@ -5484,6 +5992,9 @@ func (m *SubmissionMutation) ClearField(name string) error {
 	switch name {
 	case submission.FieldNotes:
 		m.ClearNotes()
+		return nil
+	case submission.FieldGithubRepoURL:
+		m.ClearGithubRepoURL()
 		return nil
 	case submission.FieldReviewerNotes:
 		m.ClearReviewerNotes()
@@ -5516,6 +6027,15 @@ func (m *SubmissionMutation) ResetField(name string) error {
 		return nil
 	case submission.FieldNotes:
 		m.ResetNotes()
+		return nil
+	case submission.FieldSourceType:
+		m.ResetSourceType()
+		return nil
+	case submission.FieldGithubRepoURL:
+		m.ResetGithubRepoURL()
+		return nil
+	case submission.FieldAutoUpgradeEnabled:
+		m.ResetAutoUpgradeEnabled()
 		return nil
 	case submission.FieldStatus:
 		m.ResetStatus()
@@ -5629,6 +6149,903 @@ func (m *SubmissionMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Submission edge %s", name)
+}
+
+// SyncJobMutation represents an operation that mutates the SyncJob nodes in the graph.
+type SyncJobMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	trigger_type  *syncjob.TriggerType
+	status        *syncjob.Status
+	target_ref    *string
+	error_message *string
+	started_at    *time.Time
+	finished_at   *time.Time
+	created_at    *time.Time
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	plugin        *uuid.UUID
+	clearedplugin bool
+	done          bool
+	oldValue      func(context.Context) (*SyncJob, error)
+	predicates    []predicate.SyncJob
+}
+
+var _ ent.Mutation = (*SyncJobMutation)(nil)
+
+// syncjobOption allows management of the mutation configuration using functional options.
+type syncjobOption func(*SyncJobMutation)
+
+// newSyncJobMutation creates new mutation for the SyncJob entity.
+func newSyncJobMutation(c config, op Op, opts ...syncjobOption) *SyncJobMutation {
+	m := &SyncJobMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSyncJob,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSyncJobID sets the ID field of the mutation.
+func withSyncJobID(id uuid.UUID) syncjobOption {
+	return func(m *SyncJobMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SyncJob
+		)
+		m.oldValue = func(ctx context.Context) (*SyncJob, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SyncJob.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSyncJob sets the old SyncJob of the mutation.
+func withSyncJob(node *SyncJob) syncjobOption {
+	return func(m *SyncJobMutation) {
+		m.oldValue = func(context.Context) (*SyncJob, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SyncJobMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SyncJobMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of SyncJob entities.
+func (m *SyncJobMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SyncJobMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SyncJobMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SyncJob.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetPluginID sets the "plugin_id" field.
+func (m *SyncJobMutation) SetPluginID(u uuid.UUID) {
+	m.plugin = &u
+}
+
+// PluginID returns the value of the "plugin_id" field in the mutation.
+func (m *SyncJobMutation) PluginID() (r uuid.UUID, exists bool) {
+	v := m.plugin
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPluginID returns the old "plugin_id" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldPluginID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPluginID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPluginID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPluginID: %w", err)
+	}
+	return oldValue.PluginID, nil
+}
+
+// ResetPluginID resets all changes to the "plugin_id" field.
+func (m *SyncJobMutation) ResetPluginID() {
+	m.plugin = nil
+}
+
+// SetTriggerType sets the "trigger_type" field.
+func (m *SyncJobMutation) SetTriggerType(st syncjob.TriggerType) {
+	m.trigger_type = &st
+}
+
+// TriggerType returns the value of the "trigger_type" field in the mutation.
+func (m *SyncJobMutation) TriggerType() (r syncjob.TriggerType, exists bool) {
+	v := m.trigger_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTriggerType returns the old "trigger_type" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldTriggerType(ctx context.Context) (v syncjob.TriggerType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTriggerType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTriggerType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTriggerType: %w", err)
+	}
+	return oldValue.TriggerType, nil
+}
+
+// ResetTriggerType resets all changes to the "trigger_type" field.
+func (m *SyncJobMutation) ResetTriggerType() {
+	m.trigger_type = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *SyncJobMutation) SetStatus(s syncjob.Status) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *SyncJobMutation) Status() (r syncjob.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldStatus(ctx context.Context) (v syncjob.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *SyncJobMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetTargetRef sets the "target_ref" field.
+func (m *SyncJobMutation) SetTargetRef(s string) {
+	m.target_ref = &s
+}
+
+// TargetRef returns the value of the "target_ref" field in the mutation.
+func (m *SyncJobMutation) TargetRef() (r string, exists bool) {
+	v := m.target_ref
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetRef returns the old "target_ref" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldTargetRef(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetRef is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetRef requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetRef: %w", err)
+	}
+	return oldValue.TargetRef, nil
+}
+
+// ClearTargetRef clears the value of the "target_ref" field.
+func (m *SyncJobMutation) ClearTargetRef() {
+	m.target_ref = nil
+	m.clearedFields[syncjob.FieldTargetRef] = struct{}{}
+}
+
+// TargetRefCleared returns if the "target_ref" field was cleared in this mutation.
+func (m *SyncJobMutation) TargetRefCleared() bool {
+	_, ok := m.clearedFields[syncjob.FieldTargetRef]
+	return ok
+}
+
+// ResetTargetRef resets all changes to the "target_ref" field.
+func (m *SyncJobMutation) ResetTargetRef() {
+	m.target_ref = nil
+	delete(m.clearedFields, syncjob.FieldTargetRef)
+}
+
+// SetErrorMessage sets the "error_message" field.
+func (m *SyncJobMutation) SetErrorMessage(s string) {
+	m.error_message = &s
+}
+
+// ErrorMessage returns the value of the "error_message" field in the mutation.
+func (m *SyncJobMutation) ErrorMessage() (r string, exists bool) {
+	v := m.error_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorMessage returns the old "error_message" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldErrorMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorMessage: %w", err)
+	}
+	return oldValue.ErrorMessage, nil
+}
+
+// ClearErrorMessage clears the value of the "error_message" field.
+func (m *SyncJobMutation) ClearErrorMessage() {
+	m.error_message = nil
+	m.clearedFields[syncjob.FieldErrorMessage] = struct{}{}
+}
+
+// ErrorMessageCleared returns if the "error_message" field was cleared in this mutation.
+func (m *SyncJobMutation) ErrorMessageCleared() bool {
+	_, ok := m.clearedFields[syncjob.FieldErrorMessage]
+	return ok
+}
+
+// ResetErrorMessage resets all changes to the "error_message" field.
+func (m *SyncJobMutation) ResetErrorMessage() {
+	m.error_message = nil
+	delete(m.clearedFields, syncjob.FieldErrorMessage)
+}
+
+// SetStartedAt sets the "started_at" field.
+func (m *SyncJobMutation) SetStartedAt(t time.Time) {
+	m.started_at = &t
+}
+
+// StartedAt returns the value of the "started_at" field in the mutation.
+func (m *SyncJobMutation) StartedAt() (r time.Time, exists bool) {
+	v := m.started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartedAt returns the old "started_at" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldStartedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartedAt: %w", err)
+	}
+	return oldValue.StartedAt, nil
+}
+
+// ClearStartedAt clears the value of the "started_at" field.
+func (m *SyncJobMutation) ClearStartedAt() {
+	m.started_at = nil
+	m.clearedFields[syncjob.FieldStartedAt] = struct{}{}
+}
+
+// StartedAtCleared returns if the "started_at" field was cleared in this mutation.
+func (m *SyncJobMutation) StartedAtCleared() bool {
+	_, ok := m.clearedFields[syncjob.FieldStartedAt]
+	return ok
+}
+
+// ResetStartedAt resets all changes to the "started_at" field.
+func (m *SyncJobMutation) ResetStartedAt() {
+	m.started_at = nil
+	delete(m.clearedFields, syncjob.FieldStartedAt)
+}
+
+// SetFinishedAt sets the "finished_at" field.
+func (m *SyncJobMutation) SetFinishedAt(t time.Time) {
+	m.finished_at = &t
+}
+
+// FinishedAt returns the value of the "finished_at" field in the mutation.
+func (m *SyncJobMutation) FinishedAt() (r time.Time, exists bool) {
+	v := m.finished_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinishedAt returns the old "finished_at" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldFinishedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinishedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinishedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinishedAt: %w", err)
+	}
+	return oldValue.FinishedAt, nil
+}
+
+// ClearFinishedAt clears the value of the "finished_at" field.
+func (m *SyncJobMutation) ClearFinishedAt() {
+	m.finished_at = nil
+	m.clearedFields[syncjob.FieldFinishedAt] = struct{}{}
+}
+
+// FinishedAtCleared returns if the "finished_at" field was cleared in this mutation.
+func (m *SyncJobMutation) FinishedAtCleared() bool {
+	_, ok := m.clearedFields[syncjob.FieldFinishedAt]
+	return ok
+}
+
+// ResetFinishedAt resets all changes to the "finished_at" field.
+func (m *SyncJobMutation) ResetFinishedAt() {
+	m.finished_at = nil
+	delete(m.clearedFields, syncjob.FieldFinishedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SyncJobMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SyncJobMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SyncJobMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SyncJobMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SyncJobMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the SyncJob entity.
+// If the SyncJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SyncJobMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SyncJobMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearPlugin clears the "plugin" edge to the Plugin entity.
+func (m *SyncJobMutation) ClearPlugin() {
+	m.clearedplugin = true
+	m.clearedFields[syncjob.FieldPluginID] = struct{}{}
+}
+
+// PluginCleared reports if the "plugin" edge to the Plugin entity was cleared.
+func (m *SyncJobMutation) PluginCleared() bool {
+	return m.clearedplugin
+}
+
+// PluginIDs returns the "plugin" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PluginID instead. It exists only for internal usage by the builders.
+func (m *SyncJobMutation) PluginIDs() (ids []uuid.UUID) {
+	if id := m.plugin; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPlugin resets all changes to the "plugin" edge.
+func (m *SyncJobMutation) ResetPlugin() {
+	m.plugin = nil
+	m.clearedplugin = false
+}
+
+// Where appends a list predicates to the SyncJobMutation builder.
+func (m *SyncJobMutation) Where(ps ...predicate.SyncJob) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SyncJobMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SyncJobMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SyncJob, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SyncJobMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SyncJobMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SyncJob).
+func (m *SyncJobMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SyncJobMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.plugin != nil {
+		fields = append(fields, syncjob.FieldPluginID)
+	}
+	if m.trigger_type != nil {
+		fields = append(fields, syncjob.FieldTriggerType)
+	}
+	if m.status != nil {
+		fields = append(fields, syncjob.FieldStatus)
+	}
+	if m.target_ref != nil {
+		fields = append(fields, syncjob.FieldTargetRef)
+	}
+	if m.error_message != nil {
+		fields = append(fields, syncjob.FieldErrorMessage)
+	}
+	if m.started_at != nil {
+		fields = append(fields, syncjob.FieldStartedAt)
+	}
+	if m.finished_at != nil {
+		fields = append(fields, syncjob.FieldFinishedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, syncjob.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, syncjob.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SyncJobMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case syncjob.FieldPluginID:
+		return m.PluginID()
+	case syncjob.FieldTriggerType:
+		return m.TriggerType()
+	case syncjob.FieldStatus:
+		return m.Status()
+	case syncjob.FieldTargetRef:
+		return m.TargetRef()
+	case syncjob.FieldErrorMessage:
+		return m.ErrorMessage()
+	case syncjob.FieldStartedAt:
+		return m.StartedAt()
+	case syncjob.FieldFinishedAt:
+		return m.FinishedAt()
+	case syncjob.FieldCreatedAt:
+		return m.CreatedAt()
+	case syncjob.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SyncJobMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case syncjob.FieldPluginID:
+		return m.OldPluginID(ctx)
+	case syncjob.FieldTriggerType:
+		return m.OldTriggerType(ctx)
+	case syncjob.FieldStatus:
+		return m.OldStatus(ctx)
+	case syncjob.FieldTargetRef:
+		return m.OldTargetRef(ctx)
+	case syncjob.FieldErrorMessage:
+		return m.OldErrorMessage(ctx)
+	case syncjob.FieldStartedAt:
+		return m.OldStartedAt(ctx)
+	case syncjob.FieldFinishedAt:
+		return m.OldFinishedAt(ctx)
+	case syncjob.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case syncjob.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SyncJob field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SyncJobMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case syncjob.FieldPluginID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPluginID(v)
+		return nil
+	case syncjob.FieldTriggerType:
+		v, ok := value.(syncjob.TriggerType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTriggerType(v)
+		return nil
+	case syncjob.FieldStatus:
+		v, ok := value.(syncjob.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case syncjob.FieldTargetRef:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetRef(v)
+		return nil
+	case syncjob.FieldErrorMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorMessage(v)
+		return nil
+	case syncjob.FieldStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartedAt(v)
+		return nil
+	case syncjob.FieldFinishedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinishedAt(v)
+		return nil
+	case syncjob.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case syncjob.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SyncJob field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SyncJobMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SyncJobMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SyncJobMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown SyncJob numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SyncJobMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(syncjob.FieldTargetRef) {
+		fields = append(fields, syncjob.FieldTargetRef)
+	}
+	if m.FieldCleared(syncjob.FieldErrorMessage) {
+		fields = append(fields, syncjob.FieldErrorMessage)
+	}
+	if m.FieldCleared(syncjob.FieldStartedAt) {
+		fields = append(fields, syncjob.FieldStartedAt)
+	}
+	if m.FieldCleared(syncjob.FieldFinishedAt) {
+		fields = append(fields, syncjob.FieldFinishedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SyncJobMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SyncJobMutation) ClearField(name string) error {
+	switch name {
+	case syncjob.FieldTargetRef:
+		m.ClearTargetRef()
+		return nil
+	case syncjob.FieldErrorMessage:
+		m.ClearErrorMessage()
+		return nil
+	case syncjob.FieldStartedAt:
+		m.ClearStartedAt()
+		return nil
+	case syncjob.FieldFinishedAt:
+		m.ClearFinishedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SyncJob nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SyncJobMutation) ResetField(name string) error {
+	switch name {
+	case syncjob.FieldPluginID:
+		m.ResetPluginID()
+		return nil
+	case syncjob.FieldTriggerType:
+		m.ResetTriggerType()
+		return nil
+	case syncjob.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case syncjob.FieldTargetRef:
+		m.ResetTargetRef()
+		return nil
+	case syncjob.FieldErrorMessage:
+		m.ResetErrorMessage()
+		return nil
+	case syncjob.FieldStartedAt:
+		m.ResetStartedAt()
+		return nil
+	case syncjob.FieldFinishedAt:
+		m.ResetFinishedAt()
+		return nil
+	case syncjob.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case syncjob.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SyncJob field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SyncJobMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.plugin != nil {
+		edges = append(edges, syncjob.EdgePlugin)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SyncJobMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case syncjob.EdgePlugin:
+		if id := m.plugin; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SyncJobMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SyncJobMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SyncJobMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedplugin {
+		edges = append(edges, syncjob.EdgePlugin)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SyncJobMutation) EdgeCleared(name string) bool {
+	switch name {
+	case syncjob.EdgePlugin:
+		return m.clearedplugin
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SyncJobMutation) ClearEdge(name string) error {
+	switch name {
+	case syncjob.EdgePlugin:
+		m.ClearPlugin()
+		return nil
+	}
+	return fmt.Errorf("unknown SyncJob unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SyncJobMutation) ResetEdge(name string) error {
+	switch name {
+	case syncjob.EdgePlugin:
+		m.ResetPlugin()
+		return nil
+	}
+	return fmt.Errorf("unknown SyncJob edge %s", name)
 }
 
 // TrustKeyMutation represents an operation that mutates the TrustKey nodes in the graph.

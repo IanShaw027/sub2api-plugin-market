@@ -42,6 +42,14 @@ const (
 	FieldDownloadCount = "download_count"
 	// FieldRating holds the string denoting the rating field in the database.
 	FieldRating = "rating"
+	// FieldSourceType holds the string denoting the source_type field in the database.
+	FieldSourceType = "source_type"
+	// FieldGithubRepoURL holds the string denoting the github_repo_url field in the database.
+	FieldGithubRepoURL = "github_repo_url"
+	// FieldGithubRepoNormalized holds the string denoting the github_repo_normalized field in the database.
+	FieldGithubRepoNormalized = "github_repo_normalized"
+	// FieldAutoUpgradeEnabled holds the string denoting the auto_upgrade_enabled field in the database.
+	FieldAutoUpgradeEnabled = "auto_upgrade_enabled"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -54,6 +62,8 @@ const (
 	EdgeSubmissions = "submissions"
 	// EdgeDownloadLogs holds the string denoting the download_logs edge name in mutations.
 	EdgeDownloadLogs = "download_logs"
+	// EdgeSyncJobs holds the string denoting the sync_jobs edge name in mutations.
+	EdgeSyncJobs = "sync_jobs"
 	// Table holds the table name of the plugin in the database.
 	Table = "plugins"
 	// VersionsTable is the table that holds the versions relation/edge.
@@ -77,6 +87,13 @@ const (
 	DownloadLogsInverseTable = "download_logs"
 	// DownloadLogsColumn is the table column denoting the download_logs relation/edge.
 	DownloadLogsColumn = "plugin_id"
+	// SyncJobsTable is the table that holds the sync_jobs relation/edge.
+	SyncJobsTable = "sync_jobs"
+	// SyncJobsInverseTable is the table name for the SyncJob entity.
+	// It exists in this package in order to avoid circular dependency with the "syncjob" package.
+	SyncJobsInverseTable = "sync_jobs"
+	// SyncJobsColumn is the table column denoting the sync_jobs relation/edge.
+	SyncJobsColumn = "plugin_id"
 )
 
 // Columns holds all SQL columns for plugin fields.
@@ -95,6 +112,10 @@ var Columns = []string{
 	FieldIsVerified,
 	FieldDownloadCount,
 	FieldRating,
+	FieldSourceType,
+	FieldGithubRepoURL,
+	FieldGithubRepoNormalized,
+	FieldAutoUpgradeEnabled,
 	FieldStatus,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -129,6 +150,8 @@ var (
 	DownloadCountValidator func(int) error
 	// RatingValidator is a validator for the "rating" field. It is called by the builders before save.
 	RatingValidator func(float64) error
+	// DefaultAutoUpgradeEnabled holds the default value on creation for the "auto_upgrade_enabled" field.
+	DefaultAutoUpgradeEnabled bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -165,6 +188,32 @@ func CategoryValidator(c Category) error {
 		return nil
 	default:
 		return fmt.Errorf("plugin: invalid enum value for category field: %q", c)
+	}
+}
+
+// SourceType defines the type for the "source_type" enum field.
+type SourceType string
+
+// SourceTypeUpload is the default value of the SourceType enum.
+const DefaultSourceType = SourceTypeUpload
+
+// SourceType values.
+const (
+	SourceTypeUpload SourceType = "upload"
+	SourceTypeGithub SourceType = "github"
+)
+
+func (st SourceType) String() string {
+	return string(st)
+}
+
+// SourceTypeValidator is a validator for the "source_type" field enum values. It is called by the builders before save.
+func SourceTypeValidator(st SourceType) error {
+	switch st {
+	case SourceTypeUpload, SourceTypeGithub:
+		return nil
+	default:
+		return fmt.Errorf("plugin: invalid enum value for source_type field: %q", st)
 	}
 }
 
@@ -263,6 +312,26 @@ func ByRating(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRating, opts...).ToFunc()
 }
 
+// BySourceType orders the results by the source_type field.
+func BySourceType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceType, opts...).ToFunc()
+}
+
+// ByGithubRepoURL orders the results by the github_repo_url field.
+func ByGithubRepoURL(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGithubRepoURL, opts...).ToFunc()
+}
+
+// ByGithubRepoNormalized orders the results by the github_repo_normalized field.
+func ByGithubRepoNormalized(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGithubRepoNormalized, opts...).ToFunc()
+}
+
+// ByAutoUpgradeEnabled orders the results by the auto_upgrade_enabled field.
+func ByAutoUpgradeEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAutoUpgradeEnabled, opts...).ToFunc()
+}
+
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
@@ -319,6 +388,20 @@ func ByDownloadLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newDownloadLogsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// BySyncJobsCount orders the results by sync_jobs count.
+func BySyncJobsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSyncJobsStep(), opts...)
+	}
+}
+
+// BySyncJobs orders the results by sync_jobs terms.
+func BySyncJobs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSyncJobsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newVersionsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -338,5 +421,12 @@ func newDownloadLogsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DownloadLogsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, DownloadLogsTable, DownloadLogsColumn),
+	)
+}
+func newSyncJobsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SyncJobsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SyncJobsTable, SyncJobsColumn),
 	)
 }

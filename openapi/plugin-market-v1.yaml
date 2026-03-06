@@ -232,6 +232,279 @@ paths:
               schema:
                 $ref: '#/components/schemas/Envelope'
 
+  /api/v1/submissions:
+    post:
+      summary: 创建开发者提交
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubmissionRequest'
+      responses:
+        '200':
+          description: 提交创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              example:
+                code: 0
+                message: success
+                data:
+                  submission_id: 550e8400-e29b-41d4-a716-446655440000
+                  plugin_id: 550e8400-e29b-41d4-a716-446655440001
+                  status: pending
+        '400':
+          description: 参数错误（code=1001）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              example:
+                code: 1001
+                message: source_type=github 时 github_repo_url 不能为空
+        '500':
+          description: 数据库错误（code=1004）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              example:
+                code: 1004
+                message: 创建提交失败
+
+  /api/v1/integrations/github/webhook:
+    post:
+      summary: GitHub Release Webhook（自动触发同步）
+      description: |
+        仅处理 `X-GitHub-Event=release` 且 `action=published`。
+        其他事件返回 `code=0,message=ignored`。
+      parameters:
+        - in: header
+          name: X-GitHub-Event
+          required: true
+          schema:
+            type: string
+          description: GitHub 事件类型，必须存在
+        - in: header
+          name: X-Hub-Signature-256
+          required: false
+          schema:
+            type: string
+          description: GITHUB_WEBHOOK_SECRET 非空时必须提供，格式 `sha256=<hex>`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitHubReleaseWebhookRequest'
+      responses:
+        '200':
+          description: 已处理或忽略
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              examples:
+                ignored:
+                  value:
+                    code: 0
+                    message: ignored
+                success:
+                  value:
+                    code: 0
+                    message: success
+                    data:
+                      sync_job_id: 550e8400-e29b-41d4-a716-446655440100
+                      plugin_id: 550e8400-e29b-41d4-a716-446655440001
+                      trigger_type: auto
+                      status: succeeded
+        '400':
+          description: 请求参数或签名校验失败（code=1001）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          description: 自动同步执行失败（code=1003）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/plugins/{id}/sync:
+    post:
+      summary: 创建并执行手动同步任务
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSyncRequest'
+      responses:
+        '200':
+          description: 同步任务创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: 550e8400-e29b-41d4-a716-446655440100
+                  plugin_id: 550e8400-e29b-41d4-a716-446655440001
+                  trigger_type: manual
+                  status: succeeded
+                  target_ref: main
+                  error_message: null
+                  started_at: '2026-03-05T10:00:00Z'
+                  finished_at: '2026-03-05T10:00:03Z'
+                  created_at: '2026-03-05T10:00:00Z'
+                  updated_at: '2026-03-05T10:00:03Z'
+        '400':
+          description: 请求参数错误（code=400）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          description: 创建同步任务失败（code=500）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/sync-jobs:
+    get:
+      summary: 获取同步任务列表
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, running, succeeded, failed, cancelled]
+        - in: query
+          name: plugin_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: trigger_type
+          schema:
+            type: string
+            enum: [manual, auto]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+            description: RFC3339 开始时间（含）
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+            description: RFC3339 结束时间（含）
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              example:
+                code: 0
+                message: success
+                data:
+                  jobs:
+                    - id: 550e8400-e29b-41d4-a716-446655440100
+                      plugin_id: 550e8400-e29b-41d4-a716-446655440001
+                      trigger_type: manual
+                      status: running
+                      target_ref: main
+                      error_message: null
+                      started_at: '2026-03-05T10:00:00Z'
+                      finished_at: null
+                      created_at: '2026-03-05T10:00:00Z'
+                      updated_at: '2026-03-05T10:00:01Z'
+                  pagination:
+                    page: 1
+                    page_size: 20
+                    total: 1
+                    total_pages: 1
+        '400':
+          description: 请求参数错误（code=400）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          description: 查询同步任务失败（code=500）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /admin/api/sync-jobs/{id}:
+    get:
+      summary: 获取同步任务详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: 550e8400-e29b-41d4-a716-446655440100
+                  plugin_id: 550e8400-e29b-41d4-a716-446655440001
+                  trigger_type: manual
+                  status: running
+                  target_ref: main
+                  error_message: null
+                  started_at: '2026-03-05T10:00:00Z'
+                  finished_at: null
+                  created_at: '2026-03-05T10:00:00Z'
+                  updated_at: '2026-03-05T10:00:01Z'
+        '404':
+          description: 同步任务不存在（code=404）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
   /admin/api/auth/login:
     post:
       summary: 管理员登录
@@ -451,3 +724,97 @@ components:
           example: success
         data:
           nullable: true
+
+    CreateSubmissionRequest:
+      type: object
+      required:
+        - plugin_name
+        - display_name
+        - author
+        - submission_type
+        - submitter_name
+        - submitter_email
+        - source_type
+      properties:
+        plugin_name:
+          type: string
+          description: 插件唯一名称
+          example: example-plugin
+        display_name:
+          type: string
+          description: 插件展示名称
+          example: Example Plugin
+        description:
+          type: string
+          description: 插件描述
+          example: 一个示例插件
+        author:
+          type: string
+          description: 插件作者
+          example: Ian Shaw
+        submission_type:
+          type: string
+          description: 提交类型
+          enum: [new_plugin, new_version, update_metadata]
+          example: new_plugin
+        submitter_name:
+          type: string
+          description: 提交人姓名
+          example: 张三
+        submitter_email:
+          type: string
+          format: email
+          description: 提交人邮箱
+          example: zhangsan@example.com
+        notes:
+          type: string
+          description: 提交备注
+          example: 首次上架
+        source_type:
+          type: string
+          description: 来源类型
+          enum: [upload, github]
+          example: github
+        github_repo_url:
+          type: string
+          description: GitHub 仓库地址（source_type=github 时建议填写）
+          example: https://github.com/example/repo
+        auto_upgrade_enabled:
+          type: boolean
+          description: 是否启用自动升级
+          default: false
+
+    CreateSyncRequest:
+      type: object
+      properties:
+        target_ref:
+          type: string
+          description: 目标引用（可选），如分支或标签
+          example: main
+
+    GitHubReleaseWebhookRequest:
+      type: object
+      required:
+        - action
+        - repository
+        - release
+      properties:
+        action:
+          type: string
+          example: published
+        repository:
+          type: object
+          required:
+            - html_url
+          properties:
+            html_url:
+              type: string
+              example: https://github.com/example/repo
+        release:
+          type: object
+          required:
+            - tag_name
+          properties:
+            tag_name:
+              type: string
+              example: v1.2.3

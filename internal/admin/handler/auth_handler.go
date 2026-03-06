@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/auth"
 	"github.com/gin-gonic/gin"
@@ -53,11 +51,7 @@ type UserInfo struct {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "请求参数错误",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInvalidParam, "请求参数错误")
 		return
 	}
 
@@ -65,61 +59,39 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	user, err := h.adminService.Authenticate(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		if err == auth.ErrInvalidCredentials {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"code":    401,
-				"message": "用户名或密码错误",
-			})
+			Error(c, ErrCodeUnauthorized, "用户名或密码错误")
 			return
 		}
 		if err == auth.ErrUserNotActive {
-			c.JSON(http.StatusForbidden, gin.H{
-				"code":    403,
-				"message": "用户已被禁用",
-			})
+			Error(c, ErrCodeForbidden, "用户已被禁用")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "登录失败",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInternalError, "登录失败")
 		return
 	}
 
 	// 生成 Token
 	token, err := h.jwtService.GenerateToken(user.ID.String(), user.Username, string(user.Role))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "生成令牌失败",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInternalError, "生成令牌失败")
 		return
 	}
 
 	// 生成刷新令牌
 	refreshToken, err := h.jwtService.GenerateRefreshToken(user.ID.String(), user.Username, string(user.Role))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "生成刷新令牌失败",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInternalError, "生成刷新令牌失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "登录成功",
-		"data": LoginResponse{
-			Token:        token,
-			RefreshToken: refreshToken,
-			User: UserInfo{
-				ID:       user.ID.String(),
-				Username: user.Username,
-				Email:    user.Email,
-				Role:     string(user.Role),
-			},
+	Success(c, LoginResponse{
+		Token:        token,
+		RefreshToken: refreshToken,
+		User: UserInfo{
+			ID:       user.ID.String(),
+			Username: user.Username,
+			Email:    user.Email,
+			Role:     string(user.Role),
 		},
 	})
 }
@@ -128,108 +100,70 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	user, exists := c.Get("admin_user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "未认证",
-		})
+		Error(c, ErrCodeUnauthorized, "未认证")
 		return
 	}
 
 	adminUser := user.(*ent.AdminUser)
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"data": UserInfo{
-			ID:       adminUser.ID.String(),
-			Username: adminUser.Username,
-			Email:    adminUser.Email,
-			Role:     string(adminUser.Role),
-		},
+	Success(c, UserInfo{
+		ID:       adminUser.ID.String(),
+		Username: adminUser.Username,
+		Email:    adminUser.Email,
+		Role:     string(adminUser.Role),
 	})
 }
 
 // Logout 登出
 func (h *AuthHandler) Logout(c *gin.Context) {
 	// JWT 是无状态的，登出只需要客户端删除 Token
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "登出成功",
-	})
+	Success(c, nil)
 }
 
 // Refresh 刷新访问令牌
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "请求参数错误",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInvalidParam, "请求参数错误")
 		return
 	}
 
 	claims, err := h.jwtService.ValidateRefreshToken(req.RefreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "刷新令牌无效或已过期",
-		})
+		Error(c, ErrCodeUnauthorized, "刷新令牌无效或已过期")
 		return
 	}
 
 	userID, err := uuid.Parse(claims.UserID)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "刷新令牌无效",
-		})
+		Error(c, ErrCodeUnauthorized, "刷新令牌无效")
 		return
 	}
 
 	user, err := h.adminService.GetByID(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "用户不存在",
-		})
+		Error(c, ErrCodeUnauthorized, "用户不存在")
 		return
 	}
 
 	if !user.IsActive {
-		c.JSON(http.StatusForbidden, gin.H{
-			"code":    403,
-			"message": "用户已被禁用",
-		})
+		Error(c, ErrCodeForbidden, "用户已被禁用")
 		return
 	}
 
 	token, err := h.jwtService.GenerateToken(user.ID.String(), user.Username, string(user.Role))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "生成令牌失败",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInternalError, "生成令牌失败")
 		return
 	}
 
 	refreshToken, err := h.jwtService.GenerateRefreshToken(user.ID.String(), user.Username, string(user.Role))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "生成刷新令牌失败",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInternalError, "生成刷新令牌失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "刷新成功",
-		"data": gin.H{
-			"token":         token,
-			"refresh_token": refreshToken,
-		},
+	Success(c, gin.H{
+		"token":         token,
+		"refresh_token": refreshToken,
 	})
 }

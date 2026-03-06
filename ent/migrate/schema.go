@@ -102,6 +102,10 @@ var (
 		{Name: "is_verified", Type: field.TypeBool, Default: false},
 		{Name: "download_count", Type: field.TypeInt, Default: 0},
 		{Name: "rating", Type: field.TypeFloat64, Nullable: true},
+		{Name: "source_type", Type: field.TypeEnum, Enums: []string{"upload", "github"}, Default: "upload"},
+		{Name: "github_repo_url", Type: field.TypeString, Nullable: true},
+		{Name: "github_repo_normalized", Type: field.TypeString, Nullable: true},
+		{Name: "auto_upgrade_enabled", Type: field.TypeBool, Default: false},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "deprecated", "suspended"}, Default: "active"},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
@@ -120,17 +124,22 @@ var (
 			{
 				Name:    "plugin_is_official_status",
 				Unique:  false,
-				Columns: []*schema.Column{PluginsColumns[10], PluginsColumns[14]},
+				Columns: []*schema.Column{PluginsColumns[10], PluginsColumns[18]},
 			},
 			{
 				Name:    "plugin_category_status",
 				Unique:  false,
-				Columns: []*schema.Column{PluginsColumns[8], PluginsColumns[14]},
+				Columns: []*schema.Column{PluginsColumns[8], PluginsColumns[18]},
 			},
 			{
 				Name:    "plugin_is_official_status_download_count",
 				Unique:  false,
-				Columns: []*schema.Column{PluginsColumns[10], PluginsColumns[14], PluginsColumns[12]},
+				Columns: []*schema.Column{PluginsColumns[10], PluginsColumns[18], PluginsColumns[12]},
+			},
+			{
+				Name:    "plugin_github_repo_normalized",
+				Unique:  false,
+				Columns: []*schema.Column{PluginsColumns[16]},
 			},
 		},
 	}
@@ -199,6 +208,9 @@ var (
 		{Name: "submitter_email", Type: field.TypeString},
 		{Name: "submitter_name", Type: field.TypeString},
 		{Name: "notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "source_type", Type: field.TypeEnum, Enums: []string{"upload", "github"}, Default: "upload"},
+		{Name: "github_repo_url", Type: field.TypeString, Nullable: true},
+		{Name: "auto_upgrade_enabled", Type: field.TypeBool, Default: false},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "approved", "rejected", "cancelled"}, Default: "pending"},
 		{Name: "reviewer_notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "reviewed_by", Type: field.TypeString, Nullable: true},
@@ -215,7 +227,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "submissions_plugins_submissions",
-				Columns:    []*schema.Column{SubmissionsColumns[11]},
+				Columns:    []*schema.Column{SubmissionsColumns[14]},
 				RefColumns: []*schema.Column{PluginsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -224,12 +236,61 @@ var (
 			{
 				Name:    "submission_status_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{SubmissionsColumns[5], SubmissionsColumns[9]},
+				Columns: []*schema.Column{SubmissionsColumns[8], SubmissionsColumns[12]},
 			},
 			{
 				Name:    "submission_plugin_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{SubmissionsColumns[11], SubmissionsColumns[5]},
+				Columns: []*schema.Column{SubmissionsColumns[14], SubmissionsColumns[8]},
+			},
+		},
+	}
+	// SyncJobsColumns holds the columns for the "sync_jobs" table.
+	SyncJobsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "trigger_type", Type: field.TypeEnum, Enums: []string{"manual", "auto"}, Default: "manual"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "running", "succeeded", "failed", "cancelled"}, Default: "pending"},
+		{Name: "target_ref", Type: field.TypeString, Nullable: true},
+		{Name: "error_message", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "started_at", Type: field.TypeTime, Nullable: true},
+		{Name: "finished_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "plugin_id", Type: field.TypeUUID},
+	}
+	// SyncJobsTable holds the schema information for the "sync_jobs" table.
+	SyncJobsTable = &schema.Table{
+		Name:       "sync_jobs",
+		Columns:    SyncJobsColumns,
+		PrimaryKey: []*schema.Column{SyncJobsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "sync_jobs_plugins_sync_jobs",
+				Columns:    []*schema.Column{SyncJobsColumns[9]},
+				RefColumns: []*schema.Column{PluginsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "syncjob_plugin_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{SyncJobsColumns[9], SyncJobsColumns[7]},
+			},
+			{
+				Name:    "syncjob_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{SyncJobsColumns[2], SyncJobsColumns[7]},
+			},
+			{
+				Name:    "syncjob_trigger_type_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{SyncJobsColumns[1], SyncJobsColumns[7]},
+			},
+			{
+				Name:    "syncjob_plugin_id_status_trigger_type_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{SyncJobsColumns[9], SyncJobsColumns[2], SyncJobsColumns[1], SyncJobsColumns[7]},
 			},
 		},
 	}
@@ -277,6 +338,7 @@ var (
 		PluginsTable,
 		PluginVersionsTable,
 		SubmissionsTable,
+		SyncJobsTable,
 		TrustKeysTable,
 	}
 )
@@ -286,4 +348,5 @@ func init() {
 	PluginVersionsTable.ForeignKeys[0].RefTable = PluginsTable
 	PluginVersionsTable.ForeignKeys[1].RefTable = SubmissionsTable
 	SubmissionsTable.ForeignKeys[0].RefTable = PluginsTable
+	SyncJobsTable.ForeignKeys[0].RefTable = PluginsTable
 }

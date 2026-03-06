@@ -21,5 +21,8 @@ type PluginVersion func(*sql.Selector)
 // Submission is the predicate function for submission builders.
 type Submission func(*sql.Selector)
 
+// SyncJob is the predicate function for syncjob builders.
+type SyncJob func(*sql.Selector)
+
 // TrustKey is the predicate function for trustkey builders.
 type TrustKey func(*sql.Selector)

@@ -8,7 +8,7 @@ import (
 )
 
 // RegisterRoutes 注册管理后台路由
-func RegisterRoutes(r *gin.Engine, authHandler *handler.AuthHandler, submissionHandler *handler.SubmissionHandler, jwtService *auth.JWTService, adminService *auth.AdminService) {
+func RegisterRoutes(r *gin.Engine, authHandler *handler.AuthHandler, submissionHandler *handler.SubmissionHandler, syncHandler *handler.SyncHandler, jwtService *auth.JWTService, adminService *auth.AdminService) {
 	admin := r.Group("/admin")
 	{
 		// 静态文件
@@ -33,11 +33,16 @@ func RegisterRoutes(r *gin.Engine, authHandler *handler.AuthHandler, submissionH
 				authorized.GET("/auth/me", authHandler.GetMe)
 				authorized.POST("/auth/logout", authHandler.Logout)
 
-				// 审核管理
-				authorized.GET("/submissions", submissionHandler.List)
-				authorized.GET("/submissions/:id", submissionHandler.Get)
-				authorized.PUT("/submissions/:id/review", submissionHandler.Review)
-				authorized.GET("/submissions/stats", submissionHandler.Stats)
+			// 审核管理（stats 必须在 :id 之前注册，否则 Gin 会将 "stats" 匹配为 :id）
+			authorized.GET("/submissions", submissionHandler.List)
+			authorized.GET("/submissions/stats", submissionHandler.Stats)
+			authorized.GET("/submissions/:id", submissionHandler.Get)
+			authorized.PUT("/submissions/:id/review", submissionHandler.Review)
+
+				// 同步任务
+				authorized.POST("/plugins/:id/sync", syncHandler.CreateManualSync)
+				authorized.GET("/sync-jobs", syncHandler.ListSyncJobs)
+				authorized.GET("/sync-jobs/:id", syncHandler.GetSyncJob)
 			}
 		}
 	}

@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	pubsvc "github.com/IanShaw027/sub2api-plugin-market/internal/service"
 	"github.com/google/uuid"
 )
 
@@ -82,7 +84,23 @@ func (s *SubmissionService) ReviewSubmission(ctx context.Context, id string, act
 		SetReviewedBy(reviewerName).
 		SetReviewedAt(now).
 		Save(ctx)
+	if err != nil {
+		return err
+	}
 
+	if action != "approve" {
+		return nil
+	}
+
+	pluginUpdate := s.client.Plugin.UpdateOneID(sub.PluginID).
+		SetSourceType(plugin.SourceType(sub.SourceType)).
+		SetAutoUpgradeEnabled(sub.AutoUpgradeEnabled)
+	if sub.GithubRepoURL != "" {
+		pluginUpdate = pluginUpdate.SetGithubRepoURL(sub.GithubRepoURL).
+			SetGithubRepoNormalized(pubsvc.NormalizeGitHubRepoURL(sub.GithubRepoURL))
+	}
+
+	_, err = pluginUpdate.Save(ctx)
 	return err
 }
 

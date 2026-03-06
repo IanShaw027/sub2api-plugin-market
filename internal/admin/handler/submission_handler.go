@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -39,25 +38,17 @@ func (h *SubmissionHandler) List(c *gin.Context) {
 
 	submissions, total, err := h.service.ListSubmissions(c.Request.Context(), status, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取提交列表失败",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInternalError, "获取提交列表失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"data": gin.H{
-			"submissions": submissions,
-			"pagination": gin.H{
-				"page":        page,
-				"page_size":   pageSize,
-				"total":       total,
-				"total_pages": (total + pageSize - 1) / pageSize,
-			},
+	Success(c, gin.H{
+		"submissions": submissions,
+		"pagination": gin.H{
+			"page":        page,
+			"page_size":   pageSize,
+			"total":       total,
+			"total_pages": (total + pageSize - 1) / pageSize,
 		},
 	})
 }
@@ -68,18 +59,11 @@ func (h *SubmissionHandler) Get(c *gin.Context) {
 
 	submission, err := h.service.GetSubmission(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "提交不存在",
-		})
+		Error(c, ErrCodeNotFound, "提交不存在")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"data":    submission,
-	})
+	Success(c, submission)
 }
 
 // ReviewRequest 审核请求
@@ -116,20 +100,12 @@ func (h *SubmissionHandler) Review(c *gin.Context) {
 
 	var req ReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "请求参数错误",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInvalidParam, "请求参数错误")
 		return
 	}
 
 	if err := normalizeReviewRequest(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "请求参数错误",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInvalidParam, "请求参数错误")
 		return
 	}
 
@@ -138,35 +114,20 @@ func (h *SubmissionHandler) Review(c *gin.Context) {
 
 	err := h.service.ReviewSubmission(c.Request.Context(), id, req.Action, req.ReviewerNotes, username.(string))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "审核失败",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInternalError, "审核失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "审核成功",
-	})
+	Success(c, nil)
 }
 
 // Stats 获取审核统计
 func (h *SubmissionHandler) Stats(c *gin.Context) {
 	stats, err := h.service.GetStats(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取统计数据失败",
-			"error":   err.Error(),
-		})
+		Error(c, ErrCodeInternalError, "获取统计数据失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"data":    stats,
-	})
+	Success(c, stats)
 }

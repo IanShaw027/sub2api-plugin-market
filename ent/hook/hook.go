@@ -69,6 +69,18 @@ func (f SubmissionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SubmissionMutation", m)
 }
 
+// The SyncJobFunc type is an adapter to allow the use of ordinary
+// function as SyncJob mutator.
+type SyncJobFunc func(context.Context, *ent.SyncJobMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SyncJobFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SyncJobMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SyncJobMutation", m)
+}
+
 // The TrustKeyFunc type is an adapter to allow the use of ordinary
 // function as TrustKey mutator.
 type TrustKeyFunc func(context.Context, *ent.TrustKeyMutation) (ent.Value, error)

@@ -11,6 +11,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/schema"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 	"github.com/google/uuid"
 )
@@ -127,12 +128,16 @@ func init() {
 			return nil
 		}
 	}()
+	// pluginDescAutoUpgradeEnabled is the schema descriptor for auto_upgrade_enabled field.
+	pluginDescAutoUpgradeEnabled := pluginFields[17].Descriptor()
+	// plugin.DefaultAutoUpgradeEnabled holds the default value on creation for the auto_upgrade_enabled field.
+	plugin.DefaultAutoUpgradeEnabled = pluginDescAutoUpgradeEnabled.Default.(bool)
 	// pluginDescCreatedAt is the schema descriptor for created_at field.
-	pluginDescCreatedAt := pluginFields[15].Descriptor()
+	pluginDescCreatedAt := pluginFields[19].Descriptor()
 	// plugin.DefaultCreatedAt holds the default value on creation for the created_at field.
 	plugin.DefaultCreatedAt = pluginDescCreatedAt.Default.(func() time.Time)
 	// pluginDescUpdatedAt is the schema descriptor for updated_at field.
-	pluginDescUpdatedAt := pluginFields[16].Descriptor()
+	pluginDescUpdatedAt := pluginFields[20].Descriptor()
 	// plugin.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	plugin.DefaultUpdatedAt = pluginDescUpdatedAt.Default.(func() time.Time)
 	// plugin.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -195,12 +200,16 @@ func init() {
 	submissionDescSubmitterName := submissionFields[4].Descriptor()
 	// submission.SubmitterNameValidator is a validator for the "submitter_name" field. It is called by the builders before save.
 	submission.SubmitterNameValidator = submissionDescSubmitterName.Validators[0].(func(string) error)
+	// submissionDescAutoUpgradeEnabled is the schema descriptor for auto_upgrade_enabled field.
+	submissionDescAutoUpgradeEnabled := submissionFields[8].Descriptor()
+	// submission.DefaultAutoUpgradeEnabled holds the default value on creation for the auto_upgrade_enabled field.
+	submission.DefaultAutoUpgradeEnabled = submissionDescAutoUpgradeEnabled.Default.(bool)
 	// submissionDescCreatedAt is the schema descriptor for created_at field.
-	submissionDescCreatedAt := submissionFields[10].Descriptor()
+	submissionDescCreatedAt := submissionFields[13].Descriptor()
 	// submission.DefaultCreatedAt holds the default value on creation for the created_at field.
 	submission.DefaultCreatedAt = submissionDescCreatedAt.Default.(func() time.Time)
 	// submissionDescUpdatedAt is the schema descriptor for updated_at field.
-	submissionDescUpdatedAt := submissionFields[11].Descriptor()
+	submissionDescUpdatedAt := submissionFields[14].Descriptor()
 	// submission.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	submission.DefaultUpdatedAt = submissionDescUpdatedAt.Default.(func() time.Time)
 	// submission.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -209,6 +218,22 @@ func init() {
 	submissionDescID := submissionFields[0].Descriptor()
 	// submission.DefaultID holds the default value on creation for the id field.
 	submission.DefaultID = submissionDescID.Default.(func() uuid.UUID)
+	syncjobFields := schema.SyncJob{}.Fields()
+	_ = syncjobFields
+	// syncjobDescCreatedAt is the schema descriptor for created_at field.
+	syncjobDescCreatedAt := syncjobFields[8].Descriptor()
+	// syncjob.DefaultCreatedAt holds the default value on creation for the created_at field.
+	syncjob.DefaultCreatedAt = syncjobDescCreatedAt.Default.(func() time.Time)
+	// syncjobDescUpdatedAt is the schema descriptor for updated_at field.
+	syncjobDescUpdatedAt := syncjobFields[9].Descriptor()
+	// syncjob.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	syncjob.DefaultUpdatedAt = syncjobDescUpdatedAt.Default.(func() time.Time)
+	// syncjob.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	syncjob.UpdateDefaultUpdatedAt = syncjobDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// syncjobDescID is the schema descriptor for id field.
+	syncjobDescID := syncjobFields[0].Descriptor()
+	// syncjob.DefaultID holds the default value on creation for the id field.
+	syncjob.DefaultID = syncjobDescID.Default.(func() uuid.UUID)
 	trustkeyFields := schema.TrustKey{}.Fields()
 	_ = trustkeyFields
 	// trustkeyDescKeyID is the schema descriptor for key_id field.

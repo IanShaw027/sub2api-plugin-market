@@ -34,6 +34,16 @@ func (Submission) Fields() []ent.Field {
 		field.Text("notes").
 			Optional().
 			Comment("提交说明"),
+		field.Enum("source_type").
+			Values("upload", "github").
+			Default("upload").
+			Comment("来源类型"),
+		field.String("github_repo_url").
+			Optional().
+			Comment("GitHub 仓库地址"),
+		field.Bool("auto_upgrade_enabled").
+			Default(false).
+			Comment("是否启用自动升级"),
 		field.Enum("status").
 			Values("pending", "approved", "rejected", "cancelled").
 			Default("pending").

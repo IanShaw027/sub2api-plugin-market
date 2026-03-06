@@ -26,6 +26,12 @@ const (
 	FieldSubmitterName = "submitter_name"
 	// FieldNotes holds the string denoting the notes field in the database.
 	FieldNotes = "notes"
+	// FieldSourceType holds the string denoting the source_type field in the database.
+	FieldSourceType = "source_type"
+	// FieldGithubRepoURL holds the string denoting the github_repo_url field in the database.
+	FieldGithubRepoURL = "github_repo_url"
+	// FieldAutoUpgradeEnabled holds the string denoting the auto_upgrade_enabled field in the database.
+	FieldAutoUpgradeEnabled = "auto_upgrade_enabled"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldReviewerNotes holds the string denoting the reviewer_notes field in the database.
@@ -68,6 +74,9 @@ var Columns = []string{
 	FieldSubmitterEmail,
 	FieldSubmitterName,
 	FieldNotes,
+	FieldSourceType,
+	FieldGithubRepoURL,
+	FieldAutoUpgradeEnabled,
 	FieldStatus,
 	FieldReviewerNotes,
 	FieldReviewedBy,
@@ -91,6 +100,8 @@ var (
 	SubmitterEmailValidator func(string) error
 	// SubmitterNameValidator is a validator for the "submitter_name" field. It is called by the builders before save.
 	SubmitterNameValidator func(string) error
+	// DefaultAutoUpgradeEnabled holds the default value on creation for the "auto_upgrade_enabled" field.
+	DefaultAutoUpgradeEnabled bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -122,6 +133,32 @@ func SubmissionTypeValidator(st SubmissionType) error {
 		return nil
 	default:
 		return fmt.Errorf("submission: invalid enum value for submission_type field: %q", st)
+	}
+}
+
+// SourceType defines the type for the "source_type" enum field.
+type SourceType string
+
+// SourceTypeUpload is the default value of the SourceType enum.
+const DefaultSourceType = SourceTypeUpload
+
+// SourceType values.
+const (
+	SourceTypeUpload SourceType = "upload"
+	SourceTypeGithub SourceType = "github"
+)
+
+func (st SourceType) String() string {
+	return string(st)
+}
+
+// SourceTypeValidator is a validator for the "source_type" field enum values. It is called by the builders before save.
+func SourceTypeValidator(st SourceType) error {
+	switch st {
+	case SourceTypeUpload, SourceTypeGithub:
+		return nil
+	default:
+		return fmt.Errorf("submission: invalid enum value for source_type field: %q", st)
 	}
 }
 
@@ -184,6 +221,21 @@ func BySubmitterName(opts ...sql.OrderTermOption) OrderOption {
 // ByNotes orders the results by the notes field.
 func ByNotes(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldNotes, opts...).ToFunc()
+}
+
+// BySourceType orders the results by the source_type field.
+func BySourceType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceType, opts...).ToFunc()
+}
+
+// ByGithubRepoURL orders the results by the github_repo_url field.
+func ByGithubRepoURL(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGithubRepoURL, opts...).ToFunc()
+}
+
+// ByAutoUpgradeEnabled orders the results by the auto_upgrade_enabled field.
+func ByAutoUpgradeEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAutoUpgradeEnabled, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

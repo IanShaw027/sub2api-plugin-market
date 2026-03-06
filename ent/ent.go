@@ -17,6 +17,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 )
 
@@ -83,6 +84,7 @@ func checkColumn(t, c string) error {
 			plugin.Table:        plugin.ValidColumn,
 			pluginversion.Table: pluginversion.ValidColumn,
 			submission.Table:    submission.ValidColumn,
+			syncjob.Table:       syncjob.ValidColumn,
 			trustkey.Table:      trustkey.ValidColumn,
 		})
 	})

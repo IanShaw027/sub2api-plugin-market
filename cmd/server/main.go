@@ -4,8 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/admin"
@@ -31,6 +36,10 @@ func main() {
 	}
 
 	log.Println("Sub2API Plugin Market Server starting...")
+
+	// 创建 shutdown 上下文，用于 goroutine 生命周期管理及优雅关闭
+	shutdownCtx, shutdownCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer shutdownCancel()
 
 	// 启动早期校验管理后台 JWT 密钥，避免被后续错误掩盖
 	jwtSecret, err := resolveAdminJWTSecret()
@@ -68,20 +77,37 @@ func main() {
 	pluginService := service.NewPluginService(pluginRepo)
 	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
 	downloadService := service.NewDownloadService(pluginRepo, storageBackend, client, verificationService)
+	submissionService := service.NewSubmissionService(client)
+	syncService := service.NewSyncService(client)
 
 	pluginHandler := handler.NewPluginHandler(pluginService)
 	downloadHandler := handler.NewDownloadHandler(downloadService)
 	trustKeyHandler := handler.NewTrustKeyHandler(trustKeyService)
+	v1SubmissionHandler := handler.NewSubmissionHandler(submissionService)
+	githubWebhookSecret := strings.TrimSpace(os.Getenv("GITHUB_WEBHOOK_SECRET"))
+	if githubWebhookSecret == "" {
+		log.Println("GitHub webhook secret is empty; signature verification is disabled")
+	}
+	githubWebhookSyncMaxAttempts := getEnvIntWithMin("GITHUB_WEBHOOK_SYNC_MAX_ATTEMPTS", 3, 1)
+	githubWebhookSyncRetryDelaySeconds := getEnvIntWithMin("GITHUB_WEBHOOK_SYNC_RETRY_DELAY_SECONDS", 2, 1)
+	githubWebhookHandler := handler.NewGitHubWebhookHandler(
+		syncService,
+		githubWebhookSecret,
+		githubWebhookSyncMaxAttempts,
+		githubWebhookSyncRetryDelaySeconds,
+		shutdownCtx,
+	)
 
 	// 初始化管理后台服务
 	jwtExpireHours := 2
 	jwtRefreshExpireDays := 7
 	jwtService := auth.NewJWTService(jwtSecret, jwtExpireHours, jwtRefreshExpireDays)
 	authService := auth.NewAdminService(client)
-	submissionService := adminService.NewSubmissionService(client)
+	adminSubmissionService := adminService.NewSubmissionService(client)
 
 	authHandler := adminHandler.NewAuthHandler(authService, jwtService)
-	submissionHandler := adminHandler.NewSubmissionHandler(submissionService)
+	submissionHandler := adminHandler.NewSubmissionHandler(adminSubmissionService)
+	syncHandler := adminHandler.NewSyncHandler(syncService)
 
 	// 初始化 Gin 路由
 	r := gin.Default()
@@ -92,18 +118,29 @@ func main() {
 	})
 
 	// 注册 API 路由
-	v1.RegisterRoutes(r, pluginHandler, downloadHandler, trustKeyHandler)
+	v1.RegisterRoutes(r, pluginHandler, downloadHandler, trustKeyHandler, v1SubmissionHandler, githubWebhookHandler)
 
 	// 注册管理后台路由
-	admin.RegisterRoutes(r, authHandler, submissionHandler, jwtService, authService)
+	admin.RegisterRoutes(r, authHandler, submissionHandler, syncHandler, jwtService, authService)
 
-	// 启动服务器
+	// 启动服务器（支持优雅关闭）
 	port := getEnv("PORT", "8081")
 	addr := fmt.Sprintf(":%s", port)
 
-	log.Printf("Server listening on %s", addr)
-	if err := r.Run(addr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	srv := &http.Server{Addr: addr, Handler: r}
+	go func() {
+		log.Printf("Server listening on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}()
+
+	<-shutdownCtx.Done()
+	log.Println("Shutting down server...")
+	shutdownTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownTimeout); err != nil {
+		log.Printf("Server shutdown error: %v", err)
 	}
 }
 
@@ -140,6 +177,24 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getEnvIntWithMin(key string, defaultValue, minValue int) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultValue
+	}
+
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		log.Printf("Warning: invalid %s=%q, fallback to default=%d", key, raw, defaultValue)
+		return defaultValue
+	}
+	if parsed < minValue {
+		log.Printf("Warning: %s=%d below min=%d, use min value", key, parsed, minValue)
+		return minValue
+	}
+	return parsed
 }
 
 // resolveAdminJWTSecret 解析并校验 ADMIN_JWT_SECRET

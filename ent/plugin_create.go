@@ -14,6 +14,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
 	"github.com/google/uuid"
 )
 
@@ -166,6 +167,62 @@ func (_c *PluginCreate) SetNillableRating(v *float64) *PluginCreate {
 	return _c
 }
 
+// SetSourceType sets the "source_type" field.
+func (_c *PluginCreate) SetSourceType(v plugin.SourceType) *PluginCreate {
+	_c.mutation.SetSourceType(v)
+	return _c
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_c *PluginCreate) SetNillableSourceType(v *plugin.SourceType) *PluginCreate {
+	if v != nil {
+		_c.SetSourceType(*v)
+	}
+	return _c
+}
+
+// SetGithubRepoURL sets the "github_repo_url" field.
+func (_c *PluginCreate) SetGithubRepoURL(v string) *PluginCreate {
+	_c.mutation.SetGithubRepoURL(v)
+	return _c
+}
+
+// SetNillableGithubRepoURL sets the "github_repo_url" field if the given value is not nil.
+func (_c *PluginCreate) SetNillableGithubRepoURL(v *string) *PluginCreate {
+	if v != nil {
+		_c.SetGithubRepoURL(*v)
+	}
+	return _c
+}
+
+// SetGithubRepoNormalized sets the "github_repo_normalized" field.
+func (_c *PluginCreate) SetGithubRepoNormalized(v string) *PluginCreate {
+	_c.mutation.SetGithubRepoNormalized(v)
+	return _c
+}
+
+// SetNillableGithubRepoNormalized sets the "github_repo_normalized" field if the given value is not nil.
+func (_c *PluginCreate) SetNillableGithubRepoNormalized(v *string) *PluginCreate {
+	if v != nil {
+		_c.SetGithubRepoNormalized(*v)
+	}
+	return _c
+}
+
+// SetAutoUpgradeEnabled sets the "auto_upgrade_enabled" field.
+func (_c *PluginCreate) SetAutoUpgradeEnabled(v bool) *PluginCreate {
+	_c.mutation.SetAutoUpgradeEnabled(v)
+	return _c
+}
+
+// SetNillableAutoUpgradeEnabled sets the "auto_upgrade_enabled" field if the given value is not nil.
+func (_c *PluginCreate) SetNillableAutoUpgradeEnabled(v *bool) *PluginCreate {
+	if v != nil {
+		_c.SetAutoUpgradeEnabled(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *PluginCreate) SetStatus(v plugin.Status) *PluginCreate {
 	_c.mutation.SetStatus(v)
@@ -267,6 +324,21 @@ func (_c *PluginCreate) AddDownloadLogs(v ...*DownloadLog) *PluginCreate {
 	return _c.AddDownloadLogIDs(ids...)
 }
 
+// AddSyncJobIDs adds the "sync_jobs" edge to the SyncJob entity by IDs.
+func (_c *PluginCreate) AddSyncJobIDs(ids ...uuid.UUID) *PluginCreate {
+	_c.mutation.AddSyncJobIDs(ids...)
+	return _c
+}
+
+// AddSyncJobs adds the "sync_jobs" edges to the SyncJob entity.
+func (_c *PluginCreate) AddSyncJobs(v ...*SyncJob) *PluginCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSyncJobIDs(ids...)
+}
+
 // Mutation returns the PluginMutation object of the builder.
 func (_c *PluginCreate) Mutation() *PluginMutation {
 	return _c.mutation
@@ -321,6 +393,14 @@ func (_c *PluginCreate) defaults() {
 	if _, ok := _c.mutation.DownloadCount(); !ok {
 		v := plugin.DefaultDownloadCount
 		_c.mutation.SetDownloadCount(v)
+	}
+	if _, ok := _c.mutation.SourceType(); !ok {
+		v := plugin.DefaultSourceType
+		_c.mutation.SetSourceType(v)
+	}
+	if _, ok := _c.mutation.AutoUpgradeEnabled(); !ok {
+		v := plugin.DefaultAutoUpgradeEnabled
+		_c.mutation.SetAutoUpgradeEnabled(v)
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := plugin.DefaultStatus
@@ -398,6 +478,17 @@ func (_c *PluginCreate) check() error {
 		if err := plugin.RatingValidator(v); err != nil {
 			return &ValidationError{Name: "rating", err: fmt.Errorf(`ent: validator failed for field "Plugin.rating": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.SourceType(); !ok {
+		return &ValidationError{Name: "source_type", err: errors.New(`ent: missing required field "Plugin.source_type"`)}
+	}
+	if v, ok := _c.mutation.SourceType(); ok {
+		if err := plugin.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "Plugin.source_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.AutoUpgradeEnabled(); !ok {
+		return &ValidationError{Name: "auto_upgrade_enabled", err: errors.New(`ent: missing required field "Plugin.auto_upgrade_enabled"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Plugin.status"`)}
@@ -500,6 +591,22 @@ func (_c *PluginCreate) createSpec() (*Plugin, *sqlgraph.CreateSpec) {
 		_spec.SetField(plugin.FieldRating, field.TypeFloat64, value)
 		_node.Rating = value
 	}
+	if value, ok := _c.mutation.SourceType(); ok {
+		_spec.SetField(plugin.FieldSourceType, field.TypeEnum, value)
+		_node.SourceType = value
+	}
+	if value, ok := _c.mutation.GithubRepoURL(); ok {
+		_spec.SetField(plugin.FieldGithubRepoURL, field.TypeString, value)
+		_node.GithubRepoURL = value
+	}
+	if value, ok := _c.mutation.GithubRepoNormalized(); ok {
+		_spec.SetField(plugin.FieldGithubRepoNormalized, field.TypeString, value)
+		_node.GithubRepoNormalized = value
+	}
+	if value, ok := _c.mutation.AutoUpgradeEnabled(); ok {
+		_spec.SetField(plugin.FieldAutoUpgradeEnabled, field.TypeBool, value)
+		_node.AutoUpgradeEnabled = value
+	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(plugin.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
@@ -553,6 +660,22 @@ func (_c *PluginCreate) createSpec() (*Plugin, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(downloadlog.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SyncJobsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   plugin.SyncJobsTable,
+			Columns: []string{plugin.SyncJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(syncjob.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -17,6 +17,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
 	"github.com/google/uuid"
 )
 
@@ -30,6 +31,7 @@ type PluginQuery struct {
 	withVersions     *PluginVersionQuery
 	withSubmissions  *SubmissionQuery
 	withDownloadLogs *DownloadLogQuery
+	withSyncJobs     *SyncJobQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -125,6 +127,28 @@ func (_q *PluginQuery) QueryDownloadLogs() *DownloadLogQuery {
 			sqlgraph.From(plugin.Table, plugin.FieldID, selector),
 			sqlgraph.To(downloadlog.Table, downloadlog.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, plugin.DownloadLogsTable, plugin.DownloadLogsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySyncJobs chains the current query on the "sync_jobs" edge.
+func (_q *PluginQuery) QuerySyncJobs() *SyncJobQuery {
+	query := (&SyncJobClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(plugin.Table, plugin.FieldID, selector),
+			sqlgraph.To(syncjob.Table, syncjob.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, plugin.SyncJobsTable, plugin.SyncJobsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -327,6 +351,7 @@ func (_q *PluginQuery) Clone() *PluginQuery {
 		withVersions:     _q.withVersions.Clone(),
 		withSubmissions:  _q.withSubmissions.Clone(),
 		withDownloadLogs: _q.withDownloadLogs.Clone(),
+		withSyncJobs:     _q.withSyncJobs.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -363,6 +388,17 @@ func (_q *PluginQuery) WithDownloadLogs(opts ...func(*DownloadLogQuery)) *Plugin
 		opt(query)
 	}
 	_q.withDownloadLogs = query
+	return _q
+}
+
+// WithSyncJobs tells the query-builder to eager-load the nodes that are connected to
+// the "sync_jobs" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *PluginQuery) WithSyncJobs(opts ...func(*SyncJobQuery)) *PluginQuery {
+	query := (&SyncJobClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSyncJobs = query
 	return _q
 }
 
@@ -444,10 +480,11 @@ func (_q *PluginQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Plugi
 	var (
 		nodes       = []*Plugin{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withVersions != nil,
 			_q.withSubmissions != nil,
 			_q.withDownloadLogs != nil,
+			_q.withSyncJobs != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -486,6 +523,13 @@ func (_q *PluginQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Plugi
 		if err := _q.loadDownloadLogs(ctx, query, nodes,
 			func(n *Plugin) { n.Edges.DownloadLogs = []*DownloadLog{} },
 			func(n *Plugin, e *DownloadLog) { n.Edges.DownloadLogs = append(n.Edges.DownloadLogs, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSyncJobs; query != nil {
+		if err := _q.loadSyncJobs(ctx, query, nodes,
+			func(n *Plugin) { n.Edges.SyncJobs = []*SyncJob{} },
+			func(n *Plugin, e *SyncJob) { n.Edges.SyncJobs = append(n.Edges.SyncJobs, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -568,6 +612,36 @@ func (_q *PluginQuery) loadDownloadLogs(ctx context.Context, query *DownloadLogQ
 	}
 	query.Where(predicate.DownloadLog(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(plugin.DownloadLogsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.PluginID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "plugin_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *PluginQuery) loadSyncJobs(ctx context.Context, query *SyncJobQuery, nodes []*Plugin, init func(*Plugin), assign func(*Plugin, *SyncJob)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Plugin)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(syncjob.FieldPluginID)
+	}
+	query.Where(predicate.SyncJob(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(plugin.SyncJobsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

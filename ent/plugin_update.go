@@ -17,6 +17,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/predicate"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
 	"github.com/google/uuid"
 )
 
@@ -251,6 +252,74 @@ func (_u *PluginUpdate) ClearRating() *PluginUpdate {
 	return _u
 }
 
+// SetSourceType sets the "source_type" field.
+func (_u *PluginUpdate) SetSourceType(v plugin.SourceType) *PluginUpdate {
+	_u.mutation.SetSourceType(v)
+	return _u
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_u *PluginUpdate) SetNillableSourceType(v *plugin.SourceType) *PluginUpdate {
+	if v != nil {
+		_u.SetSourceType(*v)
+	}
+	return _u
+}
+
+// SetGithubRepoURL sets the "github_repo_url" field.
+func (_u *PluginUpdate) SetGithubRepoURL(v string) *PluginUpdate {
+	_u.mutation.SetGithubRepoURL(v)
+	return _u
+}
+
+// SetNillableGithubRepoURL sets the "github_repo_url" field if the given value is not nil.
+func (_u *PluginUpdate) SetNillableGithubRepoURL(v *string) *PluginUpdate {
+	if v != nil {
+		_u.SetGithubRepoURL(*v)
+	}
+	return _u
+}
+
+// ClearGithubRepoURL clears the value of the "github_repo_url" field.
+func (_u *PluginUpdate) ClearGithubRepoURL() *PluginUpdate {
+	_u.mutation.ClearGithubRepoURL()
+	return _u
+}
+
+// SetGithubRepoNormalized sets the "github_repo_normalized" field.
+func (_u *PluginUpdate) SetGithubRepoNormalized(v string) *PluginUpdate {
+	_u.mutation.SetGithubRepoNormalized(v)
+	return _u
+}
+
+// SetNillableGithubRepoNormalized sets the "github_repo_normalized" field if the given value is not nil.
+func (_u *PluginUpdate) SetNillableGithubRepoNormalized(v *string) *PluginUpdate {
+	if v != nil {
+		_u.SetGithubRepoNormalized(*v)
+	}
+	return _u
+}
+
+// ClearGithubRepoNormalized clears the value of the "github_repo_normalized" field.
+func (_u *PluginUpdate) ClearGithubRepoNormalized() *PluginUpdate {
+	_u.mutation.ClearGithubRepoNormalized()
+	return _u
+}
+
+// SetAutoUpgradeEnabled sets the "auto_upgrade_enabled" field.
+func (_u *PluginUpdate) SetAutoUpgradeEnabled(v bool) *PluginUpdate {
+	_u.mutation.SetAutoUpgradeEnabled(v)
+	return _u
+}
+
+// SetNillableAutoUpgradeEnabled sets the "auto_upgrade_enabled" field if the given value is not nil.
+func (_u *PluginUpdate) SetNillableAutoUpgradeEnabled(v *bool) *PluginUpdate {
+	if v != nil {
+		_u.SetAutoUpgradeEnabled(*v)
+	}
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *PluginUpdate) SetStatus(v plugin.Status) *PluginUpdate {
 	_u.mutation.SetStatus(v)
@@ -314,6 +383,21 @@ func (_u *PluginUpdate) AddDownloadLogs(v ...*DownloadLog) *PluginUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddDownloadLogIDs(ids...)
+}
+
+// AddSyncJobIDs adds the "sync_jobs" edge to the SyncJob entity by IDs.
+func (_u *PluginUpdate) AddSyncJobIDs(ids ...uuid.UUID) *PluginUpdate {
+	_u.mutation.AddSyncJobIDs(ids...)
+	return _u
+}
+
+// AddSyncJobs adds the "sync_jobs" edges to the SyncJob entity.
+func (_u *PluginUpdate) AddSyncJobs(v ...*SyncJob) *PluginUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSyncJobIDs(ids...)
 }
 
 // Mutation returns the PluginMutation object of the builder.
@@ -384,6 +468,27 @@ func (_u *PluginUpdate) RemoveDownloadLogs(v ...*DownloadLog) *PluginUpdate {
 	return _u.RemoveDownloadLogIDs(ids...)
 }
 
+// ClearSyncJobs clears all "sync_jobs" edges to the SyncJob entity.
+func (_u *PluginUpdate) ClearSyncJobs() *PluginUpdate {
+	_u.mutation.ClearSyncJobs()
+	return _u
+}
+
+// RemoveSyncJobIDs removes the "sync_jobs" edge to SyncJob entities by IDs.
+func (_u *PluginUpdate) RemoveSyncJobIDs(ids ...uuid.UUID) *PluginUpdate {
+	_u.mutation.RemoveSyncJobIDs(ids...)
+	return _u
+}
+
+// RemoveSyncJobs removes "sync_jobs" edges to SyncJob entities.
+func (_u *PluginUpdate) RemoveSyncJobs(v ...*SyncJob) *PluginUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSyncJobIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *PluginUpdate) Save(ctx context.Context) (int, error) {
 	_u.defaults()
@@ -450,6 +555,11 @@ func (_u *PluginUpdate) check() error {
 	if v, ok := _u.mutation.Rating(); ok {
 		if err := plugin.RatingValidator(v); err != nil {
 			return &ValidationError{Name: "rating", err: fmt.Errorf(`ent: validator failed for field "Plugin.rating": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SourceType(); ok {
+		if err := plugin.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "Plugin.source_type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
@@ -533,6 +643,24 @@ func (_u *PluginUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.RatingCleared() {
 		_spec.ClearField(plugin.FieldRating, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.SourceType(); ok {
+		_spec.SetField(plugin.FieldSourceType, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.GithubRepoURL(); ok {
+		_spec.SetField(plugin.FieldGithubRepoURL, field.TypeString, value)
+	}
+	if _u.mutation.GithubRepoURLCleared() {
+		_spec.ClearField(plugin.FieldGithubRepoURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.GithubRepoNormalized(); ok {
+		_spec.SetField(plugin.FieldGithubRepoNormalized, field.TypeString, value)
+	}
+	if _u.mutation.GithubRepoNormalizedCleared() {
+		_spec.ClearField(plugin.FieldGithubRepoNormalized, field.TypeString)
+	}
+	if value, ok := _u.mutation.AutoUpgradeEnabled(); ok {
+		_spec.SetField(plugin.FieldAutoUpgradeEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(plugin.FieldStatus, field.TypeEnum, value)
@@ -668,6 +796,51 @@ func (_u *PluginUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(downloadlog.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SyncJobsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   plugin.SyncJobsTable,
+			Columns: []string{plugin.SyncJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(syncjob.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSyncJobsIDs(); len(nodes) > 0 && !_u.mutation.SyncJobsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   plugin.SyncJobsTable,
+			Columns: []string{plugin.SyncJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(syncjob.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SyncJobsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   plugin.SyncJobsTable,
+			Columns: []string{plugin.SyncJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(syncjob.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -913,6 +1086,74 @@ func (_u *PluginUpdateOne) ClearRating() *PluginUpdateOne {
 	return _u
 }
 
+// SetSourceType sets the "source_type" field.
+func (_u *PluginUpdateOne) SetSourceType(v plugin.SourceType) *PluginUpdateOne {
+	_u.mutation.SetSourceType(v)
+	return _u
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_u *PluginUpdateOne) SetNillableSourceType(v *plugin.SourceType) *PluginUpdateOne {
+	if v != nil {
+		_u.SetSourceType(*v)
+	}
+	return _u
+}
+
+// SetGithubRepoURL sets the "github_repo_url" field.
+func (_u *PluginUpdateOne) SetGithubRepoURL(v string) *PluginUpdateOne {
+	_u.mutation.SetGithubRepoURL(v)
+	return _u
+}
+
+// SetNillableGithubRepoURL sets the "github_repo_url" field if the given value is not nil.
+func (_u *PluginUpdateOne) SetNillableGithubRepoURL(v *string) *PluginUpdateOne {
+	if v != nil {
+		_u.SetGithubRepoURL(*v)
+	}
+	return _u
+}
+
+// ClearGithubRepoURL clears the value of the "github_repo_url" field.
+func (_u *PluginUpdateOne) ClearGithubRepoURL() *PluginUpdateOne {
+	_u.mutation.ClearGithubRepoURL()
+	return _u
+}
+
+// SetGithubRepoNormalized sets the "github_repo_normalized" field.
+func (_u *PluginUpdateOne) SetGithubRepoNormalized(v string) *PluginUpdateOne {
+	_u.mutation.SetGithubRepoNormalized(v)
+	return _u
+}
+
+// SetNillableGithubRepoNormalized sets the "github_repo_normalized" field if the given value is not nil.
+func (_u *PluginUpdateOne) SetNillableGithubRepoNormalized(v *string) *PluginUpdateOne {
+	if v != nil {
+		_u.SetGithubRepoNormalized(*v)
+	}
+	return _u
+}
+
+// ClearGithubRepoNormalized clears the value of the "github_repo_normalized" field.
+func (_u *PluginUpdateOne) ClearGithubRepoNormalized() *PluginUpdateOne {
+	_u.mutation.ClearGithubRepoNormalized()
+	return _u
+}
+
+// SetAutoUpgradeEnabled sets the "auto_upgrade_enabled" field.
+func (_u *PluginUpdateOne) SetAutoUpgradeEnabled(v bool) *PluginUpdateOne {
+	_u.mutation.SetAutoUpgradeEnabled(v)
+	return _u
+}
+
+// SetNillableAutoUpgradeEnabled sets the "auto_upgrade_enabled" field if the given value is not nil.
+func (_u *PluginUpdateOne) SetNillableAutoUpgradeEnabled(v *bool) *PluginUpdateOne {
+	if v != nil {
+		_u.SetAutoUpgradeEnabled(*v)
+	}
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *PluginUpdateOne) SetStatus(v plugin.Status) *PluginUpdateOne {
 	_u.mutation.SetStatus(v)
@@ -976,6 +1217,21 @@ func (_u *PluginUpdateOne) AddDownloadLogs(v ...*DownloadLog) *PluginUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.AddDownloadLogIDs(ids...)
+}
+
+// AddSyncJobIDs adds the "sync_jobs" edge to the SyncJob entity by IDs.
+func (_u *PluginUpdateOne) AddSyncJobIDs(ids ...uuid.UUID) *PluginUpdateOne {
+	_u.mutation.AddSyncJobIDs(ids...)
+	return _u
+}
+
+// AddSyncJobs adds the "sync_jobs" edges to the SyncJob entity.
+func (_u *PluginUpdateOne) AddSyncJobs(v ...*SyncJob) *PluginUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSyncJobIDs(ids...)
 }
 
 // Mutation returns the PluginMutation object of the builder.
@@ -1044,6 +1300,27 @@ func (_u *PluginUpdateOne) RemoveDownloadLogs(v ...*DownloadLog) *PluginUpdateOn
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDownloadLogIDs(ids...)
+}
+
+// ClearSyncJobs clears all "sync_jobs" edges to the SyncJob entity.
+func (_u *PluginUpdateOne) ClearSyncJobs() *PluginUpdateOne {
+	_u.mutation.ClearSyncJobs()
+	return _u
+}
+
+// RemoveSyncJobIDs removes the "sync_jobs" edge to SyncJob entities by IDs.
+func (_u *PluginUpdateOne) RemoveSyncJobIDs(ids ...uuid.UUID) *PluginUpdateOne {
+	_u.mutation.RemoveSyncJobIDs(ids...)
+	return _u
+}
+
+// RemoveSyncJobs removes "sync_jobs" edges to SyncJob entities.
+func (_u *PluginUpdateOne) RemoveSyncJobs(v ...*SyncJob) *PluginUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSyncJobIDs(ids...)
 }
 
 // Where appends a list predicates to the PluginUpdate builder.
@@ -1125,6 +1402,11 @@ func (_u *PluginUpdateOne) check() error {
 	if v, ok := _u.mutation.Rating(); ok {
 		if err := plugin.RatingValidator(v); err != nil {
 			return &ValidationError{Name: "rating", err: fmt.Errorf(`ent: validator failed for field "Plugin.rating": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SourceType(); ok {
+		if err := plugin.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "Plugin.source_type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
@@ -1225,6 +1507,24 @@ func (_u *PluginUpdateOne) sqlSave(ctx context.Context) (_node *Plugin, err erro
 	}
 	if _u.mutation.RatingCleared() {
 		_spec.ClearField(plugin.FieldRating, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.SourceType(); ok {
+		_spec.SetField(plugin.FieldSourceType, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.GithubRepoURL(); ok {
+		_spec.SetField(plugin.FieldGithubRepoURL, field.TypeString, value)
+	}
+	if _u.mutation.GithubRepoURLCleared() {
+		_spec.ClearField(plugin.FieldGithubRepoURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.GithubRepoNormalized(); ok {
+		_spec.SetField(plugin.FieldGithubRepoNormalized, field.TypeString, value)
+	}
+	if _u.mutation.GithubRepoNormalizedCleared() {
+		_spec.ClearField(plugin.FieldGithubRepoNormalized, field.TypeString)
+	}
+	if value, ok := _u.mutation.AutoUpgradeEnabled(); ok {
+		_spec.SetField(plugin.FieldAutoUpgradeEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(plugin.FieldStatus, field.TypeEnum, value)
@@ -1360,6 +1660,51 @@ func (_u *PluginUpdateOne) sqlSave(ctx context.Context) (_node *Plugin, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(downloadlog.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SyncJobsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   plugin.SyncJobsTable,
+			Columns: []string{plugin.SyncJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(syncjob.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSyncJobsIDs(); len(nodes) > 0 && !_u.mutation.SyncJobsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   plugin.SyncJobsTable,
+			Columns: []string{plugin.SyncJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(syncjob.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SyncJobsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   plugin.SyncJobsTable,
+			Columns: []string{plugin.SyncJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(syncjob.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

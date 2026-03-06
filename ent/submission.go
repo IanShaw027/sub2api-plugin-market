@@ -30,6 +30,12 @@ type Submission struct {
 	SubmitterName string `json:"submitter_name,omitempty"`
 	// 提交说明
 	Notes string `json:"notes,omitempty"`
+	// 来源类型
+	SourceType submission.SourceType `json:"source_type,omitempty"`
+	// GitHub 仓库地址
+	GithubRepoURL string `json:"github_repo_url,omitempty"`
+	// 是否启用自动升级
+	AutoUpgradeEnabled bool `json:"auto_upgrade_enabled,omitempty"`
 	// 审核状态
 	Status submission.Status `json:"status,omitempty"`
 	// 审核意见
@@ -86,7 +92,9 @@ func (*Submission) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case submission.FieldSubmissionType, submission.FieldSubmitterEmail, submission.FieldSubmitterName, submission.FieldNotes, submission.FieldStatus, submission.FieldReviewerNotes, submission.FieldReviewedBy:
+		case submission.FieldAutoUpgradeEnabled:
+			values[i] = new(sql.NullBool)
+		case submission.FieldSubmissionType, submission.FieldSubmitterEmail, submission.FieldSubmitterName, submission.FieldNotes, submission.FieldSourceType, submission.FieldGithubRepoURL, submission.FieldStatus, submission.FieldReviewerNotes, submission.FieldReviewedBy:
 			values[i] = new(sql.NullString)
 		case submission.FieldReviewedAt, submission.FieldCreatedAt, submission.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -142,6 +150,24 @@ func (_m *Submission) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field notes", values[i])
 			} else if value.Valid {
 				_m.Notes = value.String
+			}
+		case submission.FieldSourceType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field source_type", values[i])
+			} else if value.Valid {
+				_m.SourceType = submission.SourceType(value.String)
+			}
+		case submission.FieldGithubRepoURL:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field github_repo_url", values[i])
+			} else if value.Valid {
+				_m.GithubRepoURL = value.String
+			}
+		case submission.FieldAutoUpgradeEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field auto_upgrade_enabled", values[i])
+			} else if value.Valid {
+				_m.AutoUpgradeEnabled = value.Bool
 			}
 		case submission.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -239,6 +265,15 @@ func (_m *Submission) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("notes=")
 	builder.WriteString(_m.Notes)
+	builder.WriteString(", ")
+	builder.WriteString("source_type=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SourceType))
+	builder.WriteString(", ")
+	builder.WriteString("github_repo_url=")
+	builder.WriteString(_m.GithubRepoURL)
+	builder.WriteString(", ")
+	builder.WriteString("auto_upgrade_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AutoUpgradeEnabled))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))

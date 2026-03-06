@@ -45,6 +45,14 @@ type Plugin struct {
 	DownloadCount int `json:"download_count,omitempty"`
 	// 评分
 	Rating float64 `json:"rating,omitempty"`
+	// 来源类型
+	SourceType plugin.SourceType `json:"source_type,omitempty"`
+	// GitHub 仓库地址
+	GithubRepoURL string `json:"github_repo_url,omitempty"`
+	// Normalized GitHub repo URL for index lookup
+	GithubRepoNormalized string `json:"github_repo_normalized,omitempty"`
+	// 是否启用自动升级
+	AutoUpgradeEnabled bool `json:"auto_upgrade_enabled,omitempty"`
 	// 插件状态
 	Status plugin.Status `json:"status,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -65,9 +73,11 @@ type PluginEdges struct {
 	Submissions []*Submission `json:"submissions,omitempty"`
 	// DownloadLogs holds the value of the download_logs edge.
 	DownloadLogs []*DownloadLog `json:"download_logs,omitempty"`
+	// SyncJobs holds the value of the sync_jobs edge.
+	SyncJobs []*SyncJob `json:"sync_jobs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // VersionsOrErr returns the Versions value or an error if the edge
@@ -97,6 +107,15 @@ func (e PluginEdges) DownloadLogsOrErr() ([]*DownloadLog, error) {
 	return nil, &NotLoadedError{edge: "download_logs"}
 }
 
+// SyncJobsOrErr returns the SyncJobs value or an error if the edge
+// was not loaded in eager-loading.
+func (e PluginEdges) SyncJobsOrErr() ([]*SyncJob, error) {
+	if e.loadedTypes[3] {
+		return e.SyncJobs, nil
+	}
+	return nil, &NotLoadedError{edge: "sync_jobs"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Plugin) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -104,13 +123,13 @@ func (*Plugin) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case plugin.FieldTags:
 			values[i] = new([]byte)
-		case plugin.FieldIsOfficial, plugin.FieldIsVerified:
+		case plugin.FieldIsOfficial, plugin.FieldIsVerified, plugin.FieldAutoUpgradeEnabled:
 			values[i] = new(sql.NullBool)
 		case plugin.FieldRating:
 			values[i] = new(sql.NullFloat64)
 		case plugin.FieldDownloadCount:
 			values[i] = new(sql.NullInt64)
-		case plugin.FieldName, plugin.FieldDisplayName, plugin.FieldDescription, plugin.FieldAuthor, plugin.FieldRepositoryURL, plugin.FieldHomepageURL, plugin.FieldLicense, plugin.FieldCategory, plugin.FieldStatus:
+		case plugin.FieldName, plugin.FieldDisplayName, plugin.FieldDescription, plugin.FieldAuthor, plugin.FieldRepositoryURL, plugin.FieldHomepageURL, plugin.FieldLicense, plugin.FieldCategory, plugin.FieldSourceType, plugin.FieldGithubRepoURL, plugin.FieldGithubRepoNormalized, plugin.FieldStatus:
 			values[i] = new(sql.NullString)
 		case plugin.FieldCreatedAt, plugin.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -217,6 +236,30 @@ func (_m *Plugin) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Rating = value.Float64
 			}
+		case plugin.FieldSourceType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field source_type", values[i])
+			} else if value.Valid {
+				_m.SourceType = plugin.SourceType(value.String)
+			}
+		case plugin.FieldGithubRepoURL:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field github_repo_url", values[i])
+			} else if value.Valid {
+				_m.GithubRepoURL = value.String
+			}
+		case plugin.FieldGithubRepoNormalized:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field github_repo_normalized", values[i])
+			} else if value.Valid {
+				_m.GithubRepoNormalized = value.String
+			}
+		case plugin.FieldAutoUpgradeEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field auto_upgrade_enabled", values[i])
+			} else if value.Valid {
+				_m.AutoUpgradeEnabled = value.Bool
+			}
 		case plugin.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
@@ -261,6 +304,11 @@ func (_m *Plugin) QuerySubmissions() *SubmissionQuery {
 // QueryDownloadLogs queries the "download_logs" edge of the Plugin entity.
 func (_m *Plugin) QueryDownloadLogs() *DownloadLogQuery {
 	return NewPluginClient(_m.config).QueryDownloadLogs(_m)
+}
+
+// QuerySyncJobs queries the "sync_jobs" edge of the Plugin entity.
+func (_m *Plugin) QuerySyncJobs() *SyncJobQuery {
+	return NewPluginClient(_m.config).QuerySyncJobs(_m)
 }
 
 // Update returns a builder for updating this Plugin.
@@ -324,6 +372,18 @@ func (_m *Plugin) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("rating=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Rating))
+	builder.WriteString(", ")
+	builder.WriteString("source_type=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SourceType))
+	builder.WriteString(", ")
+	builder.WriteString("github_repo_url=")
+	builder.WriteString(_m.GithubRepoURL)
+	builder.WriteString(", ")
+	builder.WriteString("github_repo_normalized=")
+	builder.WriteString(_m.GithubRepoNormalized)
+	builder.WriteString(", ")
+	builder.WriteString("auto_upgrade_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AutoUpgradeEnabled))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))

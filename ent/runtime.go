@@ -160,10 +160,6 @@ func init() {
 	pluginversionDescWasmHash := pluginversionFields[5].Descriptor()
 	// pluginversion.WasmHashValidator is a validator for the "wasm_hash" field. It is called by the builders before save.
 	pluginversion.WasmHashValidator = pluginversionDescWasmHash.Validators[0].(func(string) error)
-	// pluginversionDescSignature is the schema descriptor for signature field.
-	pluginversionDescSignature := pluginversionFields[6].Descriptor()
-	// pluginversion.SignatureValidator is a validator for the "signature" field. It is called by the builders before save.
-	pluginversion.SignatureValidator = pluginversionDescSignature.Validators[0].(func(string) error)
 	// pluginversionDescFileSize is the schema descriptor for file_size field.
 	pluginversionDescFileSize := pluginversionFields[8].Descriptor()
 	// pluginversion.FileSizeValidator is a validator for the "file_size" field. It is called by the builders before save.

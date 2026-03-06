@@ -3861,9 +3861,22 @@ func (m *PluginVersionMutation) OldSignature(ctx context.Context) (v string, err
 	return oldValue.Signature, nil
 }
 
+// ClearSignature clears the value of the "signature" field.
+func (m *PluginVersionMutation) ClearSignature() {
+	m.signature = nil
+	m.clearedFields[pluginversion.FieldSignature] = struct{}{}
+}
+
+// SignatureCleared returns if the "signature" field was cleared in this mutation.
+func (m *PluginVersionMutation) SignatureCleared() bool {
+	_, ok := m.clearedFields[pluginversion.FieldSignature]
+	return ok
+}
+
 // ResetSignature resets all changes to the "signature" field.
 func (m *PluginVersionMutation) ResetSignature() {
 	m.signature = nil
+	delete(m.clearedFields, pluginversion.FieldSignature)
 }
 
 // SetSignKeyID sets the "sign_key_id" field.
@@ -4713,6 +4726,9 @@ func (m *PluginVersionMutation) ClearedFields() []string {
 	if m.FieldCleared(pluginversion.FieldChangelog) {
 		fields = append(fields, pluginversion.FieldChangelog)
 	}
+	if m.FieldCleared(pluginversion.FieldSignature) {
+		fields = append(fields, pluginversion.FieldSignature)
+	}
 	if m.FieldCleared(pluginversion.FieldSignKeyID) {
 		fields = append(fields, pluginversion.FieldSignKeyID)
 	}
@@ -4741,6 +4757,9 @@ func (m *PluginVersionMutation) ClearField(name string) error {
 	switch name {
 	case pluginversion.FieldChangelog:
 		m.ClearChangelog()
+		return nil
+	case pluginversion.FieldSignature:
+		m.ClearSignature()
 		return nil
 	case pluginversion.FieldSignKeyID:
 		m.ClearSignKeyID()

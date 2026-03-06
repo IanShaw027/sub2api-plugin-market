@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/IanShaw027/sub2api-pluginsign"
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
@@ -16,46 +17,63 @@ import (
 
 // VerificationService 签名验证服务
 type VerificationService struct {
+	mu              sync.RWMutex
 	trustStore      *pluginsign.TrustStore
 	trustKeyRepo    *repository.TrustKeyRepository
 	hostRuntime     string
 	hostAPIVersion  string
 }
 
-// NewVerificationService 创建签名验证服务
-func NewVerificationService(trustKeyRepo *repository.TrustKeyRepository, hostRuntime, hostAPIVersion string) (*VerificationService, error) {
-	trustStore := pluginsign.NewTrustStore()
-
-	// 从数据库加载信任密钥
-	ctx := context.Background()
-	keys, err := trustKeyRepo.ListTrustKeys(ctx, "", nil)
+// loadTrustKeys 从数据库加载信任密钥并构建 TrustStore
+func (s *VerificationService) loadTrustKeys(ctx context.Context) (*pluginsign.TrustStore, error) {
+	store := pluginsign.NewTrustStore()
+	keys, err := s.trustKeyRepo.ListTrustKeys(ctx, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load trust keys: %w", err)
 	}
-
 	for _, key := range keys {
 		pubKey, err := decodePublicKey(key.PublicKey)
 		if err != nil {
 			slog.Warn("failed to decode public key", "key_id", key.KeyID, "error", err)
 			continue
 		}
-
-		if err := trustStore.AddTrustedKey(key.KeyID, pubKey); err != nil {
+		if err := store.AddTrustedKey(key.KeyID, pubKey); err != nil {
 			slog.Warn("failed to add trusted key", "key_id", key.KeyID, "error", err)
 			continue
 		}
-
 		if !key.IsActive {
-			trustStore.RevokeKey(key.KeyID)
+			store.RevokeKey(key.KeyID)
 		}
 	}
+	return store, nil
+}
 
-	return &VerificationService{
-		trustStore:     trustStore,
+// NewVerificationService 创建签名验证服务
+func NewVerificationService(trustKeyRepo *repository.TrustKeyRepository, hostRuntime, hostAPIVersion string) (*VerificationService, error) {
+	svc := &VerificationService{
 		trustKeyRepo:   trustKeyRepo,
 		hostRuntime:    hostRuntime,
 		hostAPIVersion: hostAPIVersion,
-	}, nil
+	}
+	store, err := svc.loadTrustKeys(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	svc.trustStore = store
+	return svc, nil
+}
+
+// ReloadTrustKeys 重新从数据库加载信任密钥，支持热更新
+func (s *VerificationService) ReloadTrustKeys(ctx context.Context) error {
+	newStore, err := s.loadTrustKeys(ctx)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.trustStore = newStore
+	s.mu.Unlock()
+	slog.Info("trust keys reloaded successfully")
+	return nil
 }
 
 // VerifyPlugin 验证插件签名和哈希
@@ -92,6 +110,10 @@ func (s *VerificationService) VerifyPlugin(ctx context.Context, pv *ent.PluginVe
 		"plugin.wasm": pv.WasmHash,
 	}
 
+	s.mu.RLock()
+	store := s.trustStore
+	s.mu.RUnlock()
+
 	if err := pluginsign.VerifyInstall(pluginsign.VerifyInstallRequest{
 		Manifest:             manifest,
 		Checksums:            checksums,
@@ -100,7 +122,7 @@ func (s *VerificationService) VerifyPlugin(ctx context.Context, pv *ent.PluginVe
 		KeyID:                signKeyID,
 		HostRuntime:          s.hostRuntime,
 		HostPluginAPIVersion: s.hostAPIVersion,
-		TrustStore:           s.trustStore,
+		TrustStore:           store,
 	}); err != nil {
 		return fmt.Errorf("verify install failed: %w", err)
 	}

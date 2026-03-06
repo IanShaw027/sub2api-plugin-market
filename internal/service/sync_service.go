@@ -1,9 +1,16 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -11,6 +18,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
+	"github.com/IanShaw027/sub2api-storage"
 	"github.com/google/uuid"
 )
 
@@ -18,7 +26,10 @@ const autoSyncDedupWindow = 10 * time.Minute
 
 // SyncService 同步任务服务（MVP）
 type SyncService struct {
-	client *ent.Client
+	client         *ent.Client
+	storage        storage.Storage
+	httpClient     *http.Client // optional; nil means http.DefaultClient (for tests: inject mock)
+	githubAPIBase  string        // optional; empty means "https://api.github.com" (for tests: inject mock server URL)
 }
 
 // ListSyncJobsParams 同步任务列表查询参数
@@ -33,8 +44,8 @@ type ListSyncJobsParams struct {
 }
 
 // NewSyncService 创建同步服务
-func NewSyncService(client *ent.Client) *SyncService {
-	return &SyncService{client: client}
+func NewSyncService(client *ent.Client, storage storage.Storage) *SyncService {
+	return &SyncService{client: client, storage: storage}
 }
 
 // CreateAndRunManualSync 创建并立即执行手动同步任务
@@ -180,7 +191,7 @@ func (s *SyncService) createAndRunSync(ctx context.Context, pluginID, targetRef 
 		return nil, err
 	}
 
-	if err := s.runPseudoSync(ctx, uid); err != nil {
+	if err := s.runGitHubSync(ctx, uid, targetRef); err != nil {
 		finishedAt := time.Now()
 		_, _ = job.Update().
 			SetStatus(syncjob.StatusFailed).
@@ -277,7 +288,7 @@ func (s *SyncService) processSyncJobOnce(ctx context.Context, jobID string) erro
 		return err
 	}
 
-	if err := s.runPseudoSync(ctx, job.PluginID); err != nil {
+	if err := s.runGitHubSync(ctx, job.PluginID, job.TargetRef); err != nil {
 		finishedAt := time.Now()
 		_, _ = job.Update().
 			SetStatus(syncjob.StatusFailed).
@@ -300,44 +311,193 @@ func (s *SyncService) processSyncJobOnce(ctx context.Context, jobID string) erro
 	return nil
 }
 
-func (s *SyncService) runPseudoSync(ctx context.Context, pluginID uuid.UUID) error {
+// githubReleaseAsset represents a release asset from GitHub API.
+type githubReleaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+// githubRelease represents a release from GitHub API.
+type githubRelease struct {
+	TagName string               `json:"tag_name"`
+	Assets []githubReleaseAsset  `json:"assets"`
+}
+
+func extractOwnerRepo(githubRepoURL string) string {
+	normalized := NormalizeGitHubRepoURL(githubRepoURL)
+	if normalized == "" {
+		return ""
+	}
+	return strings.TrimPrefix(normalized, "github.com/")
+}
+
+func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, targetRef string) error {
 	pluginRecord, err := s.client.Plugin.Get(ctx, pluginID)
 	if err != nil {
 		return err
 	}
 
 	if pluginRecord.SourceType != plugin.SourceTypeGithub {
-		return fmt.Errorf("plugin source_type 必须为 github")
+		return fmt.Errorf("plugin source_type must be github")
+	}
+	if pluginRecord.GithubRepoURL == "" {
+		return fmt.Errorf("plugin github_repo_url is empty")
 	}
 
-	latestVersion, err := s.client.PluginVersion.Query().
-		Where(pluginversion.PluginIDEQ(pluginID)).
-		Order(ent.Desc(pluginversion.FieldCreatedAt)).
-		First(ctx)
-	if err != nil && !ent.IsNotFound(err) {
-		return err
-	}
-	if ent.IsNotFound(err) {
-		latestVersion = nil
+	ownerRepo := extractOwnerRepo(pluginRecord.GithubRepoURL)
+	if ownerRepo == "" {
+		return fmt.Errorf("cannot extract owner/repo from %s", pluginRecord.GithubRepoURL)
 	}
 
-	newVersion, err := s.buildSyncVersion(ctx, pluginID, latestVersion)
+	// Resolve targetRef: if empty, fetch latest release tag
+	if targetRef == "" {
+		tag, err := s.fetchLatestReleaseTag(ctx, ownerRepo)
+		if err != nil {
+			return fmt.Errorf("fetch latest release: %w", err)
+		}
+		targetRef = tag
+	}
+
+	// 1. Fetch release info
+	release, err := s.fetchReleaseByTag(ctx, ownerRepo, targetRef)
+	if err != nil {
+		return fmt.Errorf("fetch release: %w", err)
+	}
+
+	// 2. Find .wasm asset
+	var wasmAsset *githubReleaseAsset
+	for i := range release.Assets {
+		if strings.HasSuffix(strings.ToLower(release.Assets[i].Name), ".wasm") {
+			wasmAsset = &release.Assets[i]
+			break
+		}
+	}
+	if wasmAsset == nil {
+		return fmt.Errorf("no .wasm asset found in release %s", targetRef)
+	}
+
+	// 3. Download the .wasm asset
+	wasmBytes, err := s.downloadAsset(ctx, wasmAsset.BrowserDownloadURL)
+	if err != nil {
+		return fmt.Errorf("download wasm asset: %w", err)
+	}
+
+	// 4. Compute SHA256 hash
+	hash := sha256.Sum256(wasmBytes)
+	wasmHash := "sha256-" + hex.EncodeToString(hash[:])
+	fileSize := len(wasmBytes)
+
+	// 5. Upload to storage
+	storageKey := fmt.Sprintf("plugins/%s/%s/plugin.wasm", pluginRecord.Name, targetRef)
+	if _, err := s.storage.Upload(ctx, storageKey, bytes.NewReader(wasmBytes)); err != nil {
+		return fmt.Errorf("upload wasm to storage: %w", err)
+	}
+
+	// 6. Check version doesn't already exist
+	ok, err := s.versionAvailable(ctx, pluginID, targetRef)
 	if err != nil {
 		return err
 	}
+	if !ok {
+		return fmt.Errorf("plugin version %s already exists", targetRef)
+	}
 
+	// 7. Create PluginVersion with real data
 	_, err = s.client.PluginVersion.Create().
 		SetPluginID(pluginID).
-		SetVersion(newVersion).
+		SetVersion(targetRef).
 		SetStatus(pluginversion.StatusDraft).
-		SetWasmURL("sync/manual-placeholder.wasm").
-		SetWasmHash("sha256-sync-placeholder").
-		SetSignature("signature-sync-placeholder").
-		SetFileSize(1).
+		SetWasmURL(storageKey).
+		SetWasmHash(wasmHash).
+		SetSignature("").
+		SetFileSize(fileSize).
 		SetMinAPIVersion("1.0.0").
 		SetPluginAPIVersion("1.0.0").
 		Save(ctx)
 	return err
+}
+
+func (s *SyncService) getHTTPClient() *http.Client {
+	if s.httpClient != nil {
+		return s.httpClient
+	}
+	return http.DefaultClient
+}
+
+func (s *SyncService) getGitHubAPIBase() string {
+	if base := strings.TrimSuffix(s.githubAPIBase, "/"); base != "" {
+		return base
+	}
+	return "https://api.github.com"
+}
+
+func (s *SyncService) fetchLatestReleaseTag(ctx context.Context, ownerRepo string) (string, error) {
+	url := fmt.Sprintf("%s/repos/%s/releases/latest", s.getGitHubAPIBase(), ownerRepo)
+	release, err := s.fetchRelease(ctx, url)
+	if err != nil {
+		return "", err
+	}
+	if release.TagName == "" {
+		return "", fmt.Errorf("latest release has no tag_name")
+	}
+	return release.TagName, nil
+}
+
+func (s *SyncService) fetchReleaseByTag(ctx context.Context, ownerRepo, tag string) (*githubRelease, error) {
+	url := fmt.Sprintf("%s/repos/%s/releases/tags/%s", s.getGitHubAPIBase(), ownerRepo, tag)
+	return s.fetchRelease(ctx, url)
+}
+
+func (s *SyncService) fetchRelease(ctx context.Context, url string) (*githubRelease, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := s.getHTTPClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("github api %s: %s - %s", url, resp.Status, string(body))
+	}
+
+	var release githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return nil, err
+	}
+	return &release, nil
+}
+
+func (s *SyncService) downloadAsset(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/octet-stream")
+	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := s.getHTTPClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("download %s: %s - %s", url, resp.Status, string(body))
+	}
+
+	return io.ReadAll(resp.Body)
 }
 
 func (s *SyncService) buildSyncVersion(ctx context.Context, pluginID uuid.UUID, latest *ent.PluginVersion) (string, error) {

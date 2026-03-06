@@ -1,7 +1,11 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,13 +23,28 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// syncHandlerFakeStorage implements storage.Storage for sync handler tests.
+type syncHandlerFakeStorage struct{}
+
+func (s *syncHandlerFakeStorage) Upload(_ context.Context, _ string, _ io.Reader) (string, error) {
+	return "https://example.com/uploaded", nil
+}
+func (s *syncHandlerFakeStorage) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewBufferString("wasm-binary:"+key)), nil
+}
+func (s *syncHandlerFakeStorage) GetPresignedURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return fmt.Sprintf("https://example.com/download%s", key), nil
+}
+func (s *syncHandlerFakeStorage) Delete(_ context.Context, _ string) error { return nil }
+func (s *syncHandlerFakeStorage) Exists(_ context.Context, _ string) (bool, error) { return true, nil }
+
 func setupSyncHandlerTest(t *testing.T) (*SyncHandler, *ent.Client) {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:sync_handler_test?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() {
 		_ = client.Close()
 	})
-	return NewSyncHandler(service.NewSyncService(client)), client
+	return NewSyncHandler(service.NewSyncService(client, &syncHandlerFakeStorage{})), client
 }
 
 func createTestPlugin(t *testing.T, client *ent.Client) *ent.Plugin {

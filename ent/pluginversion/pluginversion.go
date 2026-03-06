@@ -119,8 +119,6 @@ var (
 	WasmURLValidator func(string) error
 	// WasmHashValidator is a validator for the "wasm_hash" field. It is called by the builders before save.
 	WasmHashValidator func(string) error
-	// SignatureValidator is a validator for the "signature" field. It is called by the builders before save.
-	SignatureValidator func(string) error
 	// FileSizeValidator is a validator for the "file_size" field. It is called by the builders before save.
 	FileSizeValidator func(int) error
 	// MinAPIVersionValidator is a validator for the "min_api_version" field. It is called by the builders before save.

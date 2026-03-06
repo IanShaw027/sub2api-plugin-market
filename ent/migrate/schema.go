@@ -150,7 +150,7 @@ var (
 		{Name: "changelog", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "wasm_url", Type: field.TypeString},
 		{Name: "wasm_hash", Type: field.TypeString},
-		{Name: "signature", Type: field.TypeString},
+		{Name: "signature", Type: field.TypeString, Nullable: true},
 		{Name: "sign_key_id", Type: field.TypeString, Nullable: true},
 		{Name: "file_size", Type: field.TypeInt},
 		{Name: "min_api_version", Type: field.TypeString},

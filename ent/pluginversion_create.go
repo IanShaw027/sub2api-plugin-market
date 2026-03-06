@@ -67,6 +67,14 @@ func (_c *PluginVersionCreate) SetSignature(v string) *PluginVersionCreate {
 	return _c
 }
 
+// SetNillableSignature sets the "signature" field if the given value is not nil.
+func (_c *PluginVersionCreate) SetNillableSignature(v *string) *PluginVersionCreate {
+	if v != nil {
+		_c.SetSignature(*v)
+	}
+	return _c
+}
+
 // SetSignKeyID sets the "sign_key_id" field.
 func (_c *PluginVersionCreate) SetSignKeyID(v string) *PluginVersionCreate {
 	_c.mutation.SetSignKeyID(v)
@@ -293,14 +301,6 @@ func (_c *PluginVersionCreate) check() error {
 	if v, ok := _c.mutation.WasmHash(); ok {
 		if err := pluginversion.WasmHashValidator(v); err != nil {
 			return &ValidationError{Name: "wasm_hash", err: fmt.Errorf(`ent: validator failed for field "PluginVersion.wasm_hash": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.Signature(); !ok {
-		return &ValidationError{Name: "signature", err: errors.New(`ent: missing required field "PluginVersion.signature"`)}
-	}
-	if v, ok := _c.mutation.Signature(); ok {
-		if err := pluginversion.SignatureValidator(v); err != nil {
-			return &ValidationError{Name: "signature", err: fmt.Errorf(`ent: validator failed for field "PluginVersion.signature": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.FileSize(); !ok {

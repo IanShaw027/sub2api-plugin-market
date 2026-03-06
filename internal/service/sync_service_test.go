@@ -1,7 +1,13 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -13,6 +19,21 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// syncTestFakeStorage implements storage.Storage for sync service tests.
+type syncTestFakeStorage struct{}
+
+func (s *syncTestFakeStorage) Upload(_ context.Context, _ string, _ io.Reader) (string, error) {
+	return "https://example.com/uploaded", nil
+}
+func (s *syncTestFakeStorage) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewBufferString("wasm-binary:"+key)), nil
+}
+func (s *syncTestFakeStorage) GetPresignedURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return fmt.Sprintf("https://example.com/download%s", key), nil
+}
+func (s *syncTestFakeStorage) Delete(_ context.Context, _ string) error { return nil }
+func (s *syncTestFakeStorage) Exists(_ context.Context, _ string) (bool, error) { return true, nil }
 
 func TestNormalizeGitHubRepoURL(t *testing.T) {
 	tests := []struct {
@@ -69,7 +90,7 @@ func TestSyncService_IsDuplicateAutoSync(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:sync_service_test?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	svc := NewSyncService(client)
+	svc := NewSyncService(client, &syncTestFakeStorage{})
 	ctx := context.Background()
 
 	p, err := client.Plugin.Create().
@@ -129,7 +150,7 @@ func TestSyncService_FindPluginByGitHubRepoURL_WithNormalizedFormats(t *testing.
 	client := enttest.Open(t, "sqlite3", "file:sync_service_find_test?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	svc := NewSyncService(client)
+	svc := NewSyncService(client, &syncTestFakeStorage{})
 	ctx := context.Background()
 
 	created, err := client.Plugin.Create().
@@ -166,7 +187,7 @@ func TestSyncService_EnqueueAutoSync_CreatesPendingAutoJob(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:sync_service_enqueue_test?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	svc := NewSyncService(client)
+	svc := NewSyncService(client, &syncTestFakeStorage{})
 	ctx := context.Background()
 
 	createdPlugin, err := client.Plugin.Create().
@@ -192,11 +213,38 @@ func TestSyncService_EnqueueAutoSync_CreatesPendingAutoJob(t *testing.T) {
 }
 
 func TestSyncService_ProcessSyncJobWithRetry_RetryDelayFallbackAndMaxAttemptsFallback(t *testing.T) {
+	// Mock GitHub API server: release by tag and .wasm asset download
+	wasmBytes := []byte{0x00, 0x61, 0x73, 0x6d} // minimal WASM magic
+	releaseJSON := func(baseURL string) []byte {
+		assetURL := baseURL + "/assets/plugin.wasm"
+		b, _ := json.Marshal(map[string]any{
+			"tag_name": "v1.0.0",
+			"assets": []map[string]any{
+				{"name": "plugin.wasm", "browser_download_url": assetURL},
+			},
+		})
+		return b
+	}
+
+	mux := http.NewServeMux()
+	var baseURL string
+	mux.HandleFunc("/repos/example/retry-fallback-plugin/releases/tags/v1.0.0", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(releaseJSON(baseURL))
+	})
+	mux.HandleFunc("/assets/plugin.wasm", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(wasmBytes)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	baseURL = server.URL
+
 	client := enttest.Open(t, "sqlite3", "file:sync_service_retry_fallback_test?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	svc := NewSyncService(client)
-	ctx := context.Background()
+	svc := NewSyncService(client, &syncTestFakeStorage{})
+	svc.githubAPIBase = baseURL
+	svc.httpClient = server.Client()
 
 	pluginRecord, err := client.Plugin.Create().
 		SetName("retry-fallback-plugin").
@@ -207,7 +255,7 @@ func TestSyncService_ProcessSyncJobWithRetry_RetryDelayFallbackAndMaxAttemptsFal
 		SetSourceType(plugin.SourceTypeGithub).
 		SetStatus(plugin.StatusActive).
 		SetGithubRepoURL("https://github.com/example/retry-fallback-plugin").
-		Save(ctx)
+		Save(context.Background())
 	require.NoError(t, err)
 
 	job, err := client.SyncJob.Create().
@@ -215,14 +263,14 @@ func TestSyncService_ProcessSyncJobWithRetry_RetryDelayFallbackAndMaxAttemptsFal
 		SetTriggerType(syncjob.TriggerTypeAuto).
 		SetStatus(syncjob.StatusPending).
 		SetTargetRef("v1.0.0").
-		Save(ctx)
+		Save(context.Background())
 	require.NoError(t, err)
 
 	started := time.Now()
-	svc.ProcessSyncJobWithRetry(ctx, job.ID.String(), 0, -1*time.Second)
+	svc.ProcessSyncJobWithRetry(context.Background(), job.ID.String(), 0, -1*time.Second)
 	elapsed := time.Since(started)
 
-	updated, err := client.SyncJob.Get(ctx, job.ID)
+	updated, err := client.SyncJob.Get(context.Background(), job.ID)
 	require.NoError(t, err)
 	assert.Equal(t, syncjob.StatusSucceeded, updated.Status)
 	assert.Less(t, elapsed, 1500*time.Millisecond)

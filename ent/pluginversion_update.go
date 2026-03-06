@@ -122,6 +122,12 @@ func (_u *PluginVersionUpdate) SetNillableSignature(v *string) *PluginVersionUpd
 	return _u
 }
 
+// ClearSignature clears the value of the "signature" field.
+func (_u *PluginVersionUpdate) ClearSignature() *PluginVersionUpdate {
+	_u.mutation.ClearSignature()
+	return _u
+}
+
 // SetSignKeyID sets the "sign_key_id" field.
 func (_u *PluginVersionUpdate) SetSignKeyID(v string) *PluginVersionUpdate {
 	_u.mutation.SetSignKeyID(v)
@@ -363,11 +369,6 @@ func (_u *PluginVersionUpdate) check() error {
 			return &ValidationError{Name: "wasm_hash", err: fmt.Errorf(`ent: validator failed for field "PluginVersion.wasm_hash": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Signature(); ok {
-		if err := pluginversion.SignatureValidator(v); err != nil {
-			return &ValidationError{Name: "signature", err: fmt.Errorf(`ent: validator failed for field "PluginVersion.signature": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.FileSize(); ok {
 		if err := pluginversion.FileSizeValidator(v); err != nil {
 			return &ValidationError{Name: "file_size", err: fmt.Errorf(`ent: validator failed for field "PluginVersion.file_size": %w`, err)}
@@ -423,6 +424,9 @@ func (_u *PluginVersionUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.Signature(); ok {
 		_spec.SetField(pluginversion.FieldSignature, field.TypeString, value)
+	}
+	if _u.mutation.SignatureCleared() {
+		_spec.ClearField(pluginversion.FieldSignature, field.TypeString)
 	}
 	if value, ok := _u.mutation.SignKeyID(); ok {
 		_spec.SetField(pluginversion.FieldSignKeyID, field.TypeString, value)
@@ -636,6 +640,12 @@ func (_u *PluginVersionUpdateOne) SetNillableSignature(v *string) *PluginVersion
 	if v != nil {
 		_u.SetSignature(*v)
 	}
+	return _u
+}
+
+// ClearSignature clears the value of the "signature" field.
+func (_u *PluginVersionUpdateOne) ClearSignature() *PluginVersionUpdateOne {
+	_u.mutation.ClearSignature()
 	return _u
 }
 
@@ -893,11 +903,6 @@ func (_u *PluginVersionUpdateOne) check() error {
 			return &ValidationError{Name: "wasm_hash", err: fmt.Errorf(`ent: validator failed for field "PluginVersion.wasm_hash": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Signature(); ok {
-		if err := pluginversion.SignatureValidator(v); err != nil {
-			return &ValidationError{Name: "signature", err: fmt.Errorf(`ent: validator failed for field "PluginVersion.signature": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.FileSize(); ok {
 		if err := pluginversion.FileSizeValidator(v); err != nil {
 			return &ValidationError{Name: "file_size", err: fmt.Errorf(`ent: validator failed for field "PluginVersion.file_size": %w`, err)}
@@ -970,6 +975,9 @@ func (_u *PluginVersionUpdateOne) sqlSave(ctx context.Context) (_node *PluginVer
 	}
 	if value, ok := _u.mutation.Signature(); ok {
 		_spec.SetField(pluginversion.FieldSignature, field.TypeString, value)
+	}
+	if _u.mutation.SignatureCleared() {
+		_spec.ClearField(pluginversion.FieldSignature, field.TypeString)
 	}
 	if value, ok := _u.mutation.SignKeyID(); ok {
 		_spec.SetField(pluginversion.FieldSignKeyID, field.TypeString, value)

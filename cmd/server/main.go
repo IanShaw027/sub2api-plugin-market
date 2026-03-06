@@ -78,7 +78,7 @@ func main() {
 	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
 	downloadService := service.NewDownloadService(pluginRepo, storageBackend, client, verificationService)
 	submissionService := service.NewSubmissionService(client)
-	syncService := service.NewSyncService(client)
+	syncService := service.NewSyncService(client, storageBackend)
 
 	pluginHandler := handler.NewPluginHandler(pluginService)
 	downloadHandler := handler.NewDownloadHandler(downloadService)
@@ -148,7 +148,7 @@ func main() {
 func initDatabase() (*ent.Client, error) {
 	// 从环境变量读取数据库配置
 	dbHost := getEnv("DB_HOST", "localhost")
-	dbPort := getEnv("DB_PORT", "5432")
+	dbPort := getEnv("DB_PORT", "5433")
 	dbUser := getEnv("DB_USER", "postgres")
 	dbPassword := getEnv("DB_PASSWORD", "postgres")
 	dbName := getEnv("DB_NAME", "plugin_market")

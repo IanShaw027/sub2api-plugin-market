@@ -35,8 +35,8 @@ func (PluginVersion) Fields() []ent.Field {
 			NotEmpty().
 			Comment("WASM 文件 SHA256 哈希"),
 		field.String("signature").
-			NotEmpty().
-			Comment("Ed25519 签名"),
+			Optional().
+			Comment("Ed25519 签名，draft 未签名版本可为空"),
 		field.String("sign_key_id").
 			Optional().
 			Comment("签名密钥 ID，关联到 TrustKey 表的 key_id"),

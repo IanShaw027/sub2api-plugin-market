@@ -31,7 +31,7 @@ type PluginVersion struct {
 	WasmURL string `json:"wasm_url,omitempty"`
 	// WASM 文件 SHA256 哈希
 	WasmHash string `json:"wasm_hash,omitempty"`
-	// Ed25519 签名
+	// Ed25519 签名，draft 未签名版本可为空
 	Signature string `json:"signature,omitempty"`
 	// 签名密钥 ID，关联到 TrustKey 表的 key_id
 	SignKeyID string `json:"sign_key_id,omitempty"`

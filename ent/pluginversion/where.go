@@ -471,6 +471,16 @@ func SignatureHasSuffix(v string) predicate.PluginVersion {
 	return predicate.PluginVersion(sql.FieldHasSuffix(FieldSignature, v))
 }
 
+// SignatureIsNil applies the IsNil predicate on the "signature" field.
+func SignatureIsNil() predicate.PluginVersion {
+	return predicate.PluginVersion(sql.FieldIsNull(FieldSignature))
+}
+
+// SignatureNotNil applies the NotNil predicate on the "signature" field.
+func SignatureNotNil() predicate.PluginVersion {
+	return predicate.PluginVersion(sql.FieldNotNull(FieldSignature))
+}
+
 // SignatureEqualFold applies the EqualFold predicate on the "signature" field.
 func SignatureEqualFold(v string) predicate.PluginVersion {
 	return predicate.PluginVersion(sql.FieldEqualFold(FieldSignature, v))

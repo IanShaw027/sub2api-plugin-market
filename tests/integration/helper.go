@@ -60,7 +60,7 @@ func SetupTestContext(t *testing.T) *TestContext {
 	downloadHandler := handler.NewDownloadHandler(downloadService)
 	trustKeyHandler := handler.NewTrustKeyHandler(trustKeyService)
 	submissionService := service.NewSubmissionService(client)
-	syncService := service.NewSyncService(client)
+	syncService := service.NewSyncService(client, &fakeStorage{})
 	submissionHandler := handler.NewSubmissionHandler(submissionService)
 	githubWebhookHandler := handler.NewGitHubWebhookHandler(syncService, "", 1, 1)
 

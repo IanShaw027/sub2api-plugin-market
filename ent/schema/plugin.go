@@ -1,12 +1,14 @@
 package schema
 
 import (
+	"regexp"
+	"time"
+
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
-	"time"
 )
 
 // Plugin holds the schema definition for the Plugin entity.
@@ -23,7 +25,8 @@ func (Plugin) Fields() []ent.Field {
 		field.String("name").
 			Unique().
 			NotEmpty().
-			Comment("插件唯一标识符"),
+			Match(regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$`)).
+			Comment("插件唯一标识符，仅允许小写字母、数字和连字符，长度 2-64"),
 		field.String("display_name").
 			NotEmpty().
 			Comment("插件显示名称"),

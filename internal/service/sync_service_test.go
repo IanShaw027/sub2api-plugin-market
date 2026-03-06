@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -17,6 +19,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -561,4 +564,172 @@ func TestSyncService_CanSign(t *testing.T) {
 	require.NoError(t, err)
 	svc.signingKey = privKey
 	assert.True(t, svc.CanSign())
+}
+
+// TestSyncService_RunGitHubSync_WithManifestAndSignature verifies that when a release
+// contains manifest.json and signature.sig, the version is created with full metadata
+// and status=published (external signature verified).
+func TestSyncService_RunGitHubSync_WithManifestAndSignature(t *testing.T) {
+	wasmBytes := []byte{0x00, 0x61, 0x73, 0x6d}
+	hash := sha256.Sum256(wasmBytes)
+	wasmHash := "sha256-" + hex.EncodeToString(hash[:])
+
+	// Generate key pair and sign the wasm hash (same as runGitHubSync computes)
+	pubKey, privKey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+	sig := ed25519.Sign(privKey, []byte(wasmHash))
+	sigHex := hex.EncodeToString(sig)
+
+	manifestJSON := []byte(`{"name":"manifest-plugin","version":"v1.0.0","plugin_type":"provider","plugin_api_version":"1.1.0","capabilities":["host_http_fetch","host_kv"],"min_api_version":"1.0.0","max_api_version":"2.0.0"}`)
+
+	releaseJSON := func(baseURL string) []byte {
+		b, _ := json.Marshal(map[string]any{
+			"tag_name": "v1.0.0",
+			"assets": []map[string]any{
+				{"name": "plugin.wasm", "browser_download_url": baseURL + "/assets/plugin.wasm"},
+				{"name": "manifest.json", "browser_download_url": baseURL + "/assets/manifest.json"},
+				{"name": "signature.sig", "browser_download_url": baseURL + "/assets/signature.sig"},
+			},
+		})
+		return b
+	}
+
+	mux := http.NewServeMux()
+	var baseURL string
+	mux.HandleFunc("/repos/example/manifest-sig-plugin/releases/tags/v1.0.0", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(releaseJSON(baseURL))
+	})
+	mux.HandleFunc("/assets/plugin.wasm", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(wasmBytes)
+	})
+	mux.HandleFunc("/assets/manifest.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(manifestJSON)
+	})
+	mux.HandleFunc("/assets/signature.sig", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(sigHex))
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	baseURL = server.URL
+
+	client := enttest.Open(t, "sqlite3", "file:sync_manifest_sig_test?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	ctx := context.Background()
+	pluginRecord, err := client.Plugin.Create().
+		SetName("manifest-sig-plugin").
+		SetDisplayName("Manifest Sig Plugin").
+		SetDescription("test").
+		SetAuthor("tester").
+		SetCategory(plugin.CategoryOther).
+		SetSourceType(plugin.SourceTypeGithub).
+		SetStatus(plugin.StatusActive).
+		SetGithubRepoURL("https://github.com/example/manifest-sig-plugin").
+		Save(ctx)
+	require.NoError(t, err)
+
+	_, err = client.TrustKey.Create().
+		SetKeyID("ext-key-001").
+		SetPublicKey(base64.StdEncoding.EncodeToString(pubKey)).
+		SetKeyType(trustkey.KeyTypeCommunity).
+		SetOwnerName("Test Owner").
+		SetOwnerEmail("test@example.com").
+		SetIsActive(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := NewSyncService(client, &syncTestFakeStorage{})
+	svc.githubAPIBase = baseURL
+	svc.httpClient = server.Client()
+
+	err = svc.runGitHubSync(ctx, pluginRecord.ID, "v1.0.0")
+	require.NoError(t, err)
+
+	versions, err := client.PluginVersion.Query().
+		Where(pluginversion.PluginIDEQ(pluginRecord.ID), pluginversion.VersionEQ("v1.0.0")).
+		All(ctx)
+	require.NoError(t, err)
+	require.Len(t, versions, 1)
+	pv := versions[0]
+
+	assert.Equal(t, pluginversion.StatusPublished, pv.Status)
+	assert.NotEmpty(t, pv.Signature)
+	assert.Equal(t, "ext-key-001", pv.SignKeyID)
+	assert.False(t, pv.PublishedAt.IsZero())
+	assert.Equal(t, "1.0.0", pv.MinAPIVersion)
+	assert.Equal(t, "1.1.0", pv.PluginAPIVersion)
+	assert.Equal(t, "2.0.0", pv.MaxAPIVersion)
+	assert.Equal(t, []string{"host_http_fetch", "host_kv"}, pv.Capabilities)
+
+	// Plugin should have plugin_type updated from manifest
+	updatedPlugin, err := client.Plugin.Get(ctx, pluginRecord.ID)
+	require.NoError(t, err)
+	assert.Equal(t, plugin.PluginTypeProvider, updatedPlugin.PluginType)
+}
+
+// TestSyncService_RunGitHubSync_WithoutManifest verifies backward compatibility:
+// release with only .wasm behaves as before (defaults, no manifest fields).
+func TestSyncService_RunGitHubSync_WithoutManifest(t *testing.T) {
+	wasmBytes := []byte{0x00, 0x61, 0x73, 0x6d}
+	releaseJSON := func(baseURL string) []byte {
+		b, _ := json.Marshal(map[string]any{
+			"tag_name": "v1.0.0",
+			"assets": []map[string]any{
+				{"name": "plugin.wasm", "browser_download_url": baseURL + "/assets/plugin.wasm"},
+			},
+		})
+		return b
+	}
+
+	mux := http.NewServeMux()
+	var baseURL string
+	mux.HandleFunc("/repos/example/wasm-only-plugin/releases/tags/v1.0.0", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(releaseJSON(baseURL))
+	})
+	mux.HandleFunc("/assets/plugin.wasm", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(wasmBytes)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	baseURL = server.URL
+
+	client := enttest.Open(t, "sqlite3", "file:sync_wasm_only_test?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	ctx := context.Background()
+	pluginRecord, err := client.Plugin.Create().
+		SetName("wasm-only-plugin").
+		SetDisplayName("Wasm Only Plugin").
+		SetDescription("test").
+		SetAuthor("tester").
+		SetCategory(plugin.CategoryOther).
+		SetSourceType(plugin.SourceTypeGithub).
+		SetStatus(plugin.StatusActive).
+		SetGithubRepoURL("https://github.com/example/wasm-only-plugin").
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := NewSyncService(client, &syncTestFakeStorage{})
+	svc.githubAPIBase = baseURL
+	svc.httpClient = server.Client()
+
+	err = svc.runGitHubSync(ctx, pluginRecord.ID, "v1.0.0")
+	require.NoError(t, err)
+
+	versions, err := client.PluginVersion.Query().
+		Where(pluginversion.PluginIDEQ(pluginRecord.ID), pluginversion.VersionEQ("v1.0.0")).
+		All(ctx)
+	require.NoError(t, err)
+	require.Len(t, versions, 1)
+	pv := versions[0]
+
+	// Defaults when no manifest
+	assert.Equal(t, "1.0.0", pv.MinAPIVersion)
+	assert.Equal(t, "1.0.0", pv.PluginAPIVersion)
+	assert.Empty(t, pv.MaxAPIVersion)
+	assert.Nil(t, pv.Capabilities)
+	// No signing configured, so draft
+	assert.Equal(t, pluginversion.StatusDraft, pv.Status)
 }

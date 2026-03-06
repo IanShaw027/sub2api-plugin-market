@@ -41,6 +41,9 @@ migrate-up: ## 运行数据库迁移（别名）
 migrate-down: ## 回滚数据库迁移
 	go run cmd/server/main.go migrate-down
 
+migrate-export: ## 导出 Ent schema 为 SQL（需 PostgreSQL 可达，如 make docker-up）
+	go run scripts/export_schema_sql.go -o migrations/000001_initial_schema.up.sql
+
 install-tools: ## 安装开发工具
 	go install golang.org/x/tools/cmd/goimports@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest

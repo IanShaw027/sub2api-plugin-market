@@ -21,6 +21,12 @@
 | `1004` | database_error | 数据库错误 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:46) |
 | `1005` | storage_error | 存储服务错误 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:47) |
 | `1006` | forbidden | 权限不足或安全配置缺失 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:48) |
+| `1007` | manifest_invalid | manifest.json 格式错误或缺少必填字段 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:49) |
+| `1008` | wasm_hash_mismatch | WASM 文件哈希与签名不匹配 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:50) |
+| `1009` | signature_invalid | Ed25519 签名验证失败 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:51) |
+| `1010` | sign_key_not_found | 签名密钥 ID 在 trust_key 表中不存在 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:52) |
+| `1011` | wasm_upload_failed | WASM 文件上传到存储失败 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:53) |
+| `1012` | pending_limit_exceeded | 同一插件已有过多待审核提交 | [response.go](/Users/ianshaw/Documents/fork/sub2api-plugin-market/internal/api/v1/handler/response.go:54) |
 
 ## 3. 调用方建议
 
@@ -30,6 +36,12 @@
 4. `1004`：短暂重试 + 告警数据库健康。
 5. `1005`：降级下载链路并告警存储服务。
 6. `1006`：检查安全配置（如 `GITHUB_WEBHOOK_SECRET`），或确认操作权限。
+7. `1007`：提示用户修正 manifest.json 格式或补全必填字段。
+8. `1008`：提示用户重新构建并签名 WASM，确保哈希一致。
+9. `1009`：提示用户检查签名密钥与签名过程。
+10. `1010`：提示用户使用已注册的 trust_key，或先注册签名密钥。
+11. `1011`：记录并告警存储服务，建议用户稍后重试。
+12. `1012`：提示用户等待已有待审核提交处理完成后再提交。
 
 ## 4. 端点适用场景
 
@@ -44,11 +56,20 @@
   - `source_type` 非 `upload/github`
   - `source_type=github` 但 `github_repo_url` 为空
   - `submission_type` 非法
+- WASM 相关错误（HTTP 400）：
+  - `code=1007` MANIFEST_INVALID：manifest.json 格式错误或缺少必填字段
+  - `code=1008` WASM_HASH_MISMATCH：WASM 文件哈希与签名不匹配
+  - `code=1009` SIGNATURE_INVALID：Ed25519 签名验证失败
+  - `code=1010` SIGN_KEY_NOT_FOUND：签名密钥 ID 在 trust_key 表中不存在
+- 待审核限制：`code=1012` PENDING_LIMIT_EXCEEDED，HTTP 409
+  - 同一插件已有过多待审核提交
 - 速率限制：`code=1001`，HTTP 429
   - 同一 IP 超过速率限制（默认 10 次/分钟，由 `SUBMISSION_RATE_LIMIT` 环境变量配置）
   - 响应头包含 `Retry-After`
 - 数据库错误：`code=1004`
   - 插件或提交记录落库失败
+- WASM 上传失败：`code=1011` WASM_UPLOAD_FAILED，HTTP 500
+  - WASM 文件上传到存储失败
 
 #### POST `/api/v1/integrations/github/webhook`
 

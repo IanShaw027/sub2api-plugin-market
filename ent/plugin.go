@@ -19,7 +19,7 @@ type Plugin struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// 插件唯一标识符
+	// 插件唯一标识符，仅允许小写字母、数字和连字符，长度 2-64
 	Name string `json:"name,omitempty"`
 	// 插件显示名称
 	DisplayName string `json:"display_name,omitempty"`

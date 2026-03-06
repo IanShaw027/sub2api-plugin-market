@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"io"
 	"testing"
+	"time"
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/enttest"
@@ -13,9 +15,23 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type submissionTestFakeStorage struct{}
+
+func (s *submissionTestFakeStorage) Upload(_ context.Context, _ string, _ io.Reader) (string, error) {
+	return "https://example.com/uploaded", nil
+}
+func (s *submissionTestFakeStorage) Download(_ context.Context, _ string) (io.ReadCloser, error) {
+	return nil, nil
+}
+func (s *submissionTestFakeStorage) GetPresignedURL(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "", nil
+}
+func (s *submissionTestFakeStorage) Delete(_ context.Context, _ string) error { return nil }
+func (s *submissionTestFakeStorage) Exists(_ context.Context, _ string) (bool, error) { return false, nil }
+
 func setupSubmissionTest(t *testing.T) (*SubmissionService, *ent.Client) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
-	return NewSubmissionService(client), client
+	return NewSubmissionService(client, &submissionTestFakeStorage{}), client
 }
 
 func validCreateRequest() *CreateSubmissionRequest {

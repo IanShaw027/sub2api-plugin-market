@@ -247,12 +247,19 @@ paths:
   /api/v1/submissions:
     post:
       summary: 创建开发者提交
+      description: |
+        支持两种请求格式：
+        - **application/json**：纯元数据提交（source_type=upload/github），向后兼容。
+        - **multipart/form-data**：WASM 上传提交，需提供 wasm_file、manifest，可选 signature、sign_key_id。
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateSubmissionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateSubmissionMultipartRequest'
       responses:
         '200':
           description: 提交创建成功
@@ -268,7 +275,12 @@ paths:
                   plugin_id: 550e8400-e29b-41d4-a716-446655440001
                   status: pending
         '400':
-          description: 参数错误（code=1001）
+          description: |
+            参数错误（code=1001）或 WASM 相关错误：
+            - code=1007 MANIFEST_INVALID：manifest.json 格式错误或缺少必填字段
+            - code=1008 WASM_HASH_MISMATCH：WASM 文件哈希与签名不匹配
+            - code=1009 SIGNATURE_INVALID：Ed25519 签名验证失败
+            - code=1010 SIGN_KEY_NOT_FOUND：签名密钥 ID 在 trust_key 表中不存在
           content:
             application/json:
               schema:
@@ -276,6 +288,15 @@ paths:
               example:
                 code: 1001
                 message: source_type=github 时 github_repo_url 不能为空
+        '409':
+          description: 同一插件已有过多待审核提交（code=1012 PENDING_LIMIT_EXCEEDED）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              example:
+                code: 1012
+                message: 同一插件已有过多待审核提交
         '429':
           description: 请求过于频繁（IP 级速率限制）
           headers:
@@ -291,7 +312,8 @@ paths:
                 code: 1001
                 message: 请求过于频繁，请稍后再试
         '500':
-          description: 数据库错误（code=1004）
+          description: |
+            数据库错误（code=1004）或 WASM 上传失败（code=1011 WASM_UPLOAD_FAILED）
           content:
             application/json:
               schema:
@@ -822,6 +844,134 @@ components:
           type: boolean
           description: 是否启用自动升级
           default: false
+
+    CreateSubmissionMultipartRequest:
+      type: object
+      description: multipart/form-data 请求体，用于 WASM 上传提交
+      properties:
+        wasm_file:
+          type: string
+          format: binary
+          description: WASM 插件文件（可选，与 manifest 配合使用）
+        manifest:
+          type: string
+          description: 插件清单 JSON 字符串，包含 name、version、plugin_type、capabilities 等
+          example: '{"name":"example-plugin","version":"1.0.0","plugin_type":"interceptor","plugin_api_version":"1.0.0","capabilities":["host_http_fetch"],"min_api_version":"1.0.0","max_api_version":"2.0.0"}'
+        signature:
+          type: string
+          description: base64 Ed25519 签名（可选）
+        sign_key_id:
+          type: string
+          description: 签名密钥 ID，关联 trust_key 表（可选）
+        plugin_name:
+          type: string
+          description: 插件唯一名称（可选，可从 manifest 解析）
+        display_name:
+          type: string
+          description: 插件展示名称
+        description:
+          type: string
+          description: 插件描述
+        author:
+          type: string
+          description: 插件作者
+        submitter_name:
+          type: string
+          description: 提交人姓名
+        submitter_email:
+          type: string
+          format: email
+          description: 提交人邮箱
+        notes:
+          type: string
+          description: 提交备注
+
+    PluginManifest:
+      type: object
+      required:
+        - name
+        - version
+        - plugin_type
+        - plugin_api_version
+      properties:
+        name:
+          type: string
+          description: 插件唯一名称
+          pattern: '^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$'
+        version:
+          type: string
+          description: 语义化版本号
+        plugin_type:
+          type: string
+          enum: [interceptor, transform, provider]
+          description: 插件类型
+        plugin_api_version:
+          type: string
+          description: 插件 API 版本，格式如 1.0.0
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Capability'
+          description: 所需 Host API 能力列表
+        min_api_version:
+          type: string
+          description: 最低 sub2api API 版本要求
+        max_api_version:
+          type: string
+          description: 最高 sub2api API 版本要求
+
+    Capability:
+      type: string
+      enum:
+        - host_http_fetch
+        - host_kv_read
+        - host_kv_write
+        - host_log_write
+        - host_config_read
+      description: Host API 能力标识
+
+    PluginVersionDetail:
+      type: object
+      description: 插件版本详情
+      properties:
+        id:
+          type: string
+          format: uuid
+        plugin_id:
+          type: string
+          format: uuid
+        version:
+          type: string
+        wasm_url:
+          type: string
+        wasm_hash:
+          type: string
+        min_api_version:
+          type: string
+        max_api_version:
+          type: string
+        plugin_api_version:
+          type: string
+        plugin_type:
+          type: string
+          enum: [interceptor, transform, provider]
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Capability'
+        config_schema:
+          type: object
+          description: 插件配置项 JSON Schema
+        status:
+          type: string
+          enum: [draft, published, yanked]
+        created_at:
+          type: string
+          format: date-time
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
 
     CreateSyncRequest:
       type: object

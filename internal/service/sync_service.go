@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/trustkey"
 	"github.com/IanShaw027/sub2api-storage"
 	"github.com/google/uuid"
 )
@@ -376,6 +378,44 @@ func (s *SyncService) CanSign() bool {
 	return s.signingKey != nil
 }
 
+// verifyExternalSignature tries to verify sigBytes against wasmHash using active trust keys.
+// Returns (signKeyID, signatureHex, true) if verification succeeds, or ("", "", false) otherwise.
+func (s *SyncService) verifyExternalSignature(ctx context.Context, wasmHash string, sigBytes []byte) (signKeyID, signatureHex string, ok bool) {
+	if len(sigBytes) == 0 {
+		return "", "", false
+	}
+	// Decode signature: try hex first, then base64
+	var sig []byte
+	if dec, err := hex.DecodeString(strings.TrimSpace(string(sigBytes))); err == nil && len(dec) == ed25519.SignatureSize {
+		sig = dec
+	} else if dec, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(sigBytes))); err == nil && len(dec) == ed25519.SignatureSize {
+		sig = dec
+	} else {
+		slog.Warn("signature.sig invalid encoding or length", "len", len(sigBytes))
+		return "", "", false
+	}
+
+	trustKeys, err := s.client.TrustKey.Query().
+		Where(trustkey.IsActiveEQ(true)).
+		All(ctx)
+	if err != nil {
+		slog.Warn("failed to query trust keys for verification", "error", err)
+		return "", "", false
+	}
+
+	msg := []byte(wasmHash)
+	for _, tk := range trustKeys {
+		pubKey, err := base64.StdEncoding.DecodeString(strings.TrimSpace(tk.PublicKey))
+		if err != nil || len(pubKey) != ed25519.PublicKeySize {
+			continue
+		}
+		if ed25519.Verify(ed25519.PublicKey(pubKey), msg, sig) {
+			return tk.KeyID, hex.EncodeToString(sig), true
+		}
+	}
+	return "", "", false
+}
+
 func (s *SyncService) signAndPublish(ctx context.Context, versionID uuid.UUID, wasmHash string) error {
 	if s.signingKey == nil {
 		slog.Info("signing not configured, version remains draft", "version_id", versionID)
@@ -451,6 +491,45 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 		return fmt.Errorf("no .wasm asset found in release %s", targetRef)
 	}
 
+	// 2b. Find manifest.json and signature.sig (optional, backward compatible)
+	var manifestAsset, sigAsset *githubReleaseAsset
+	for i := range release.Assets {
+		lower := strings.ToLower(release.Assets[i].Name)
+		if release.Assets[i].Name == "manifest.json" || lower == "manifest.json" {
+			manifestAsset = &release.Assets[i]
+		}
+		if strings.HasSuffix(lower, ".sig") {
+			sigAsset = &release.Assets[i]
+		}
+	}
+
+	// 2c. Download and parse manifest (optional; no error if missing or invalid)
+	var parsedManifest *PluginManifest
+	if manifestAsset != nil {
+		manifestBytes, dlErr := s.downloadAsset(ctx, manifestAsset.BrowserDownloadURL)
+		if dlErr != nil {
+			slog.Warn("failed to download manifest.json, using defaults", "error", dlErr, "release", targetRef)
+		} else {
+			var m PluginManifest
+			if jsonErr := json.Unmarshal(manifestBytes, &m); jsonErr != nil {
+				slog.Warn("invalid manifest.json format, using defaults", "error", jsonErr, "release", targetRef)
+			} else {
+				parsedManifest = &m
+			}
+		}
+	}
+
+	// 2d. Download signature.sig (optional)
+	var signatureBytes []byte
+	if sigAsset != nil {
+		sigRaw, dlErr := s.downloadAsset(ctx, sigAsset.BrowserDownloadURL)
+		if dlErr != nil {
+			slog.Warn("failed to download signature.sig", "error", dlErr, "release", targetRef)
+		} else {
+			signatureBytes = sigRaw
+		}
+	}
+
 	// 3. Check version doesn't already exist (S-07: moved before download/upload)
 	ok, err := s.versionAvailable(ctx, pluginID, targetRef)
 	if err != nil {
@@ -477,18 +556,64 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 		return fmt.Errorf("upload wasm to storage: %w", err)
 	}
 
-	// 7. Create PluginVersion — cleanup orphan WASM on failure (S-07)
-	pv, err := s.client.PluginVersion.Create().
+	// 7. Verify external signature (if present); prefer over built-in signing
+	var extSignKeyID, extSignature string
+	if len(signatureBytes) > 0 {
+		if kid, sig, verified := s.verifyExternalSignature(ctx, wasmHash, signatureBytes); verified {
+			extSignKeyID, extSignature = kid, sig
+			slog.Info("external signature verified", "key_id", kid, "release", targetRef)
+		} else {
+			slog.Warn("external signature verification failed, version will remain draft", "release", targetRef)
+		}
+	}
+
+	// 8. Build manifest-derived fields (defaults if no manifest)
+	minAPI, pluginAPI, maxAPI := "1.0.0", "1.0.0", ""
+	var caps []string
+	if parsedManifest != nil {
+		if parsedManifest.MinAPIVersion != "" {
+			minAPI = parsedManifest.MinAPIVersion
+		}
+		if parsedManifest.PluginAPIVersion != "" {
+			pluginAPI = parsedManifest.PluginAPIVersion
+		}
+		if parsedManifest.MaxAPIVersion != "" {
+			maxAPI = parsedManifest.MaxAPIVersion
+		}
+		if len(parsedManifest.Capabilities) > 0 {
+			caps = parsedManifest.Capabilities
+		}
+		// Optionally update Plugin.plugin_type from manifest
+		if parsedManifest.PluginType != "" {
+			pt := plugin.PluginType(parsedManifest.PluginType)
+			if pt == plugin.PluginTypeInterceptor || pt == plugin.PluginTypeTransform || pt == plugin.PluginTypeProvider {
+				_, _ = pluginRecord.Update().SetPluginType(pt).Save(ctx)
+			}
+		}
+	}
+
+	create := s.client.PluginVersion.Create().
 		SetPluginID(pluginID).
 		SetVersion(targetRef).
-		SetStatus(pluginversion.StatusDraft).
 		SetWasmURL(storageKey).
 		SetWasmHash(wasmHash).
-		SetSignature("").
 		SetFileSize(fileSize).
-		SetMinAPIVersion("1.0.0").
-		SetPluginAPIVersion("1.0.0").
-		Save(ctx)
+		SetMinAPIVersion(minAPI).
+		SetPluginAPIVersion(pluginAPI)
+	if maxAPI != "" {
+		create = create.SetMaxAPIVersion(maxAPI)
+	}
+	if len(caps) > 0 {
+		create = create.SetCapabilities(caps)
+	}
+	if extSignKeyID != "" && extSignature != "" {
+		create = create.SetSignature(extSignature).SetSignKeyID(extSignKeyID).
+			SetStatus(pluginversion.StatusPublished).SetPublishedAt(time.Now())
+	} else {
+		create = create.SetSignature("").SetStatus(pluginversion.StatusDraft)
+	}
+
+	pv, err := create.Save(ctx)
 	if err != nil {
 		if delErr := s.storage.Delete(ctx, storageKey); delErr != nil {
 			slog.Error("failed to cleanup orphan wasm", "key", storageKey, "error", delErr)
@@ -496,9 +621,11 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 		return fmt.Errorf("create plugin version: %w", err)
 	}
 
-	// 8. Sign and auto-publish if signing is configured (F-05)
-	if err := s.signAndPublish(ctx, pv.ID, wasmHash); err != nil {
-		slog.Error("failed to sign version, remains as draft", "error", err, "version_id", pv.ID)
+	// 9. Fallback to built-in signing only when no external signature was used
+	if extSignKeyID == "" && extSignature == "" {
+		if err := s.signAndPublish(ctx, pv.ID, wasmHash); err != nil {
+			slog.Error("failed to sign version, remains as draft", "error", err, "version_id", pv.ID)
+		}
 	}
 
 	return nil

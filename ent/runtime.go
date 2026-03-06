@@ -83,7 +83,21 @@ func init() {
 	// pluginDescName is the schema descriptor for name field.
 	pluginDescName := pluginFields[1].Descriptor()
 	// plugin.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	plugin.NameValidator = pluginDescName.Validators[0].(func(string) error)
+	plugin.NameValidator = func() func(string) error {
+		validators := pluginDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// pluginDescDisplayName is the schema descriptor for display_name field.
 	pluginDescDisplayName := pluginFields[2].Descriptor()
 	// plugin.DisplayNameValidator is a validator for the "display_name" field. It is called by the builders before save.

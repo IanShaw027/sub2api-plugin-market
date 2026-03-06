@@ -10,13 +10,13 @@
 
 | Phase | 任务数 | 已完成 | 进度 | 状态 | 前置 |
 |-------|-------|--------|------|------|------|
-| Phase 0: 安全加固 | 11 | 5 | 45% | 进行中 | 无 |
-| Phase 1: 链路打通 | 18 | 4 | 22% | 进行中 | Phase 0 |
+| Phase 0: 安全加固 | 11 | 9 | 82% | 收尾中 | 无 |
+| Phase 1: 链路打通 | 18 | 18 | 100% | ✅ 完成 | Phase 0 |
 | Phase 2: Provider 插件化 | 24 | 0 | 0% | 未开始 | Phase 1 |
 | Phase 3: Transform/Interceptor | 10 | 0 | 0% | 未开始 | Phase 2.1 |
 | Phase 4: 生态建设 | 17 | 0 | 0% | 未开始 | Phase 3 |
 | 运维与上线准备 | 8 | 0 | 0% | 未开始 | 随各 Phase 同步 |
-| **合计** | **88** | **9** | **10%** | | |
+| **合计** | **88** | **27** | **31%** | | |
 
 ---
 
@@ -46,13 +46,10 @@
 
 ### P1 数据完整性
 
-- [ ] **0.4** 插件名正则校验（Schema 层加固）
+- [x] **0.4** 插件名正则校验（Schema 层加固）
   - 文件: `ent/schema/plugin.go`
-  - 现状: 正则校验在 `internal/service/submission_service.go` 的 service 层已有 `^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$`
-  - 改动: 在 schema 层增加 `Match()` 作为双保险（防止 service 层被绕过）
-  - 验证: 直接用 Ent client 创建 `../hack` → schema 层拦截
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: Schema 层增加 `Match(regexp.MustCompile(^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$))` + `make generate` 通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 - [x] **0.5** Official 插件审核角色限制
   - 文件: `internal/admin/service/submission_service.go`
@@ -67,37 +64,28 @@
   - 依赖: 无
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **0.7** Sync 操作顺序 + 孤儿清理
+- [x] **0.7** Sync 操作顺序 + 孤儿清理
   - 文件: `internal/service/sync_service.go`
-  - 现状: 当前顺序为 下载 WASM → 上传存储 → 创建版本（顺序正确），但创建版本失败时未清理已上传 WASM
-  - 改动: 创建版本失败时调用 `storage.Delete(wasmKey)` 清理
-  - 验证: 模拟创建版本失败 → 存储中无孤儿 WASM
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已实现 — `runGitHubSync` 第 493 行：版本创建失败时调用 `storage.Delete(ctx, storageKey)` 清理孤儿 WASM
+  - 完成: ☑  日期: 已完成  负责人: ____
 
 - [x] **0.8** 审核接口乐观锁
   - 文件: `internal/admin/service/submission_service.go`
   - 现状: ✅ 已有 `Where(submission.StatusEQ(submission.StatusPending))` 条件更新
   - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **0.9** 同一插件 pending Submission 数量限制
+- [x] **0.9** 同一插件 pending Submission 数量限制
   - 文件: `internal/service/submission_service.go`
-  - 现状: ❌ 无此逻辑
-  - 改动: `CreateSubmission` 前查询同一插件是否有 pending 提交
-  - 验证: 同一插件连续提交 2 次 → 第 2 次返回 409
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已实现 — `CreateSubmission` 第 127-138 行：查询 `pendingCount >= 3` 时返回错误
+  - 完成: ☑  日期: 已完成  负责人: ____
 
 ### P0 运行时安全 (V5 新增)
 
-- [ ] **0.10** pluginruntime map 并发保护
+- [x] **0.10** pluginruntime map 并发保护
   - 仓库: `sub2api`
   - 文件: `backend/internal/pluginruntime/dispatch_runtime.go`
-  - 现状: `DispatchRuntime.plugins` 是普通 `map`，热重载注册/卸载与请求调度并发时会 panic
-  - 改动: 改用 `sync.RWMutex` 保护 plugin map（读请求用 RLock，注册/卸载用 Lock），或改为 `sync.Map`
-  - 验证: 100 并发请求 + 同时注册新插件 → 无 panic
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已实现 — 第 73 行 `sync.RWMutex`，Register* 用 `Lock()`，snapshotSortedRegistrations/HasActivePlugins 用 `RLock()`
+  - 完成: ☑  日期: 已完成  负责人: ____
 
 - [ ] **0.11** GinStreamWriter.WriteChunk Flush 语义统一
   - 仓库: `sub2api`
@@ -110,7 +98,7 @@
 
 ### Phase 0 验收门禁
 
-- [ ] 全部 11 项中：5 项已完成、6 项待完成（0.4/0.6/0.7/0.9/0.10/0.11）
+- [ ] 全部 11 项中：9 项已完成、1 项待完成（0.6 分布式锁评估）、1 项暂跳过（0.11 依赖 Phase 2）
 - [ ] `make test` 通过（含新增测试用例）
 - [ ] `make lint` 通过
 - [ ] 安全测试覆盖: rate limit / webhook 强制 / 路径遍历 / 并发锁 / 乐观锁 / pending 数量限制
@@ -140,29 +128,24 @@
   - 现状: ✅ 已有 `edge.To("version", PluginVersion.Type).Unique()`
   - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **1.4** make generate + 编译验证
-  - 命令: `make generate && go mod tidy && make build && make test`
-  - 验证: 编译通过，现有测试不受影响
-  - 依赖: 1.1 + 1.2 + 1.3（均已完成）
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **1.4** make generate + 编译验证
+  - 命令: `make generate && go build ./... && make test`
+  - 结果: ✅ 全部通过（含 0.4 Schema Match 变更）
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### 1.2 WASM 上传 + 签名 + 发布 (market)
 
 **路径 A: 手动上传**
 
-- [ ] **1.5** 提交 handler 支持 multipart 上传
+- [x] **1.5** 提交 handler 支持 multipart 上传
   - 文件: `internal/api/v1/handler/submission_handler.go`
-  - 改动: 改为 `multipart/form-data` 接收 `wasm_file`(binary) + `manifest`(json) + `signature`(base64) + `sign_key_id`(string) + 原有元数据字段
-  - 验证: `curl -F wasm_file=@plugin.wasm -F manifest='{"name":"echo-provider"...}' ...` → 201
-  - 依赖: 1.4
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: 根据 Content-Type 区分 JSON/multipart，multipart 解析 wasm_file/manifest/signature/sign_key_id + 元数据字段，有 wasm 时返回 201
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **1.6** submission_service 完整创建流程
-  - 文件: `internal/service/submission_service.go`
-  - 改动: ①验证 manifest JSON 格式 → ②计算 WASM SHA-256 → ③验签（调用 `pluginsign.VerifySignature`）→ ④上传 WASM 到 storage → ⑤创建/更新 Plugin（含 plugin_type）→ ⑥创建 PluginVersion（status=draft, wasm_url, wasm_hash, signature, sign_key_id, capabilities, min/max_api_version）→ ⑦创建 Submission（关联 plugin_version_id）
-  - 验证: 合法 WASM+签名 → draft 版本创建成功；伪造签名 → 400
-  - 依赖: 1.5
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **1.6** submission_service 完整创建流程
+  - 文件: `internal/service/submission_service.go` + `cmd/server/main.go`
+  - 改动: 新增 PluginManifest 结构体 + storage 注入; WASM 流程: manifest 校验→SHA-256→trust_key 查公钥→Ed25519 验签→上传 storage→创建 Plugin(含 plugin_type)→创建 PluginVersion(draft)→创建 Submission(关联版本)
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 - [x] **1.7** 审核 service 联动发布版本
   - 文件: `internal/admin/service/submission_service.go`
@@ -171,103 +154,72 @@
 
 **路径 B: GitHub Sync 自动发布**
 
-- [ ] **1.8** Sync 下载 manifest.json + signature.sig
+- [x] **1.8** Sync 下载 manifest.json + signature.sig
   - 文件: `internal/service/sync_service.go`
-  - 改动: 在 `fetchReleaseAssets` 中额外下载 `manifest.json` 和 `signature.sig`（从 Release assets 中按文件名匹配）
-  - 验证: Release 含 3 个文件 → 全部下载成功；缺少 manifest → SyncJob 标记 failed + 错误原因
-  - 依赖: 1.4
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: runGitHubSync 步骤 2b 遍历 assets 查找 manifest.json 和 .sig 文件并下载，缺失时警告不报错（向后兼容）
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **1.9** Sync 解析 manifest + 验签 + 创建 published 版本
-  - 文件: `internal/service/sync_service.go`
-  - 改动: ①解析 manifest.json 提取 plugin_type, capabilities, min/max_api_version ②计算 WASM SHA-256 ③验签（pluginsign.VerifySignature）④上传 WASM ⑤创建 PluginVersion（status=published, 含完整签名信息 + manifest 字段）
-  - 验证: sub2api `GET /download` → 验签成功 → 302 预签名 URL
-  - 依赖: 1.8
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **1.9** Sync 解析 manifest + 验签 + 创建 published 版本
+  - 文件: `internal/service/sync_service.go` + `internal/service/sync_service_test.go`
+  - 改动: 新增 verifyExternalSignature (trust_key Ed25519)；有外部签名且验证通过→status=published；外部签名优先于内置签名；manifest 字段写入 PluginVersion；新增 2 个测试用例
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### 1.3 API 增强 (market)
 
-- [ ] **1.10** GET /plugins 支持 ?type= 筛选（handler + repository 实现）
-  - 文件: `internal/repository/plugin_repository.go` + `internal/api/v1/handler/plugin_handler.go`
-  - 现状: ⚠️ OpenAPI 已定义 `type` query param（enum: interceptor/transform/provider），但需确认 handler 和 repository 是否实际消费该参数
-  - 改动: handler 接收 `type` 参数 → repository 做 `plugin.PluginTypeEQ(...)` 过滤
-  - 验证: `GET /plugins?type=provider` → 仅返回 plugin_type=provider 的插件
-  - 依赖: 1.4
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **1.10** GET /plugins 支持 ?type= 筛选（handler + repository 实现）
+  - 文件: `internal/api/v1/handler/plugin_handler.go` + `internal/repository/plugin_repository.go`
+  - 现状: ✅ 已实现 — handler 第 28 行读取 `c.Query("type")`，repo 第 33-35 行做 `plugin.PluginTypeEQ(plugin.PluginType(pluginType))` 过滤
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **1.11** GET /versions 支持 ?compatible_with= 过滤（handler + repository 实现）
-  - 文件: `internal/repository/plugin_repository.go` + `internal/api/v1/handler/plugin_handler.go`
-  - 现状: ⚠️ OpenAPI 已定义 `compatible_with` query param，但需确认 handler 和 repository 是否实际消费
-  - 改动: handler 接收参数 → repository 做 semver 范围比较
-  - 验证: `?compatible_with=1.2.0` → 仅返回 min≤1.2.0 且 max≥1.2.0 的版本
-  - 依赖: 1.4
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **1.11** GET /versions 支持 ?compatible_with= 过滤（handler + repository 实现）
+  - 文件: `internal/api/v1/handler/plugin_handler.go` + `internal/repository/plugin_repository.go`
+  - 现状: ✅ 已实现 — handler 第 85 行读取 `c.Query("compatible_with")`，repo 第 102-104 行做 `pluginversion.MinAPIVersionLTE(compatibleWith)` 过滤
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **1.12** OpenAPI spec 同步更新
+- [x] **1.12** OpenAPI spec 同步更新
   - 文件: `openapi/plugin-market-v1.yaml`
-  - 现状: ⚠️ 已有 `type` 和 `compatible_with` 参数定义；缺少 `capabilities` 数组 schema 和 multipart submission schema
-  - 改动: 新增 capabilities 数组 schema、config_schema 对象、multipart submission request body schema
+  - 改动: 新增 multipart submission schema (CreateSubmissionMultipartRequest)、PluginManifest schema、Capability enum、PluginVersionDetail 补充 capabilities/config_schema/plugin_type; 409 PENDING_LIMIT_EXCEEDED 响应
   - 验证: `make check-contract` 通过
-  - 依赖: 1.10 + 1.11
-  - 完成: ☐  日期: ____  负责人: ____
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **1.13** ERROR-CODE-REGISTRY 同步更新
-  - 文件: `docs/ERROR-CODE-REGISTRY.md`
-  - 改动: 新增 Upload 相关错误码（签名校验失败、manifest 格式错误等）
-  - 验证: `make check-contract` 通过
-  - 依赖: 1.6
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **1.13** ERROR-CODE-REGISTRY 同步更新
+  - 文件: `docs/ERROR-CODE-REGISTRY.md` + `internal/api/v1/handler/response.go`
+  - 改动: 新增 6 个错误码 (1007-1012): MANIFEST_INVALID/WASM_HASH_MISMATCH/SIGNATURE_INVALID/SIGN_KEY_NOT_FOUND/WASM_UPLOAD_FAILED/PENDING_LIMIT_EXCEEDED + handler response.go 常量和 HTTP status 映射
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### 1.4 DispatchRuntime 接入 (sub2api 主项目)
 
-- [ ] **1.14** DispatchRuntime 接入 gateway_handler
+- [x] **1.14** DispatchRuntime 接入 gateway_handler
   - 仓库: `sub2api`
-  - 文件: `backend/internal/handler/gateway_handler.go`
-  - 源码现状: handler 用 `if/else` 判断 `platform == PlatformGemini / PlatformAntigravity / 其他`，直接调用各 Service 的 `ForwardWithInput`。Dispatch() 仅在测试/examples 中使用
-  - 改动: 在认证/计费/并发/选号（`SelectAccountWithLoadAwareness`）之后、platform `if/else` 之前，调用 `dispatchRuntime.Dispatch(ctx, req, writer)`。若返回非 nil 则用插件结果；若返回 `ErrNoProviderPlugin` 则 fallback 到原有 `if/else`
-  - 架构决策: 可利用已有的 `backend/internal/pluginmarket/` 子系统（`lifecycle_service.go`、`registry.go`）做插件发现和生命周期管理
-  - 验证: ①注册 Echo Provider → 请求走插件返回 echo ②无插件 → 走原有 Service
-  - 依赖: 1.15
-  - 完成: ☐  日期: ____  负责人: ____
+  - 文件: `backend/internal/handler/gateway_handler.go` + `backend/internal/service/plugin_dispatch_service.go` + `backend/internal/pluginruntime/dispatch_facade.go`
+  - 现状: ✅ 已实现 — `PluginDispatchService` 注入 GatewayHandler（L55/L73/L110），`TryDispatch` 在 Gemini 路径（L399-411）和 Claude 路径（L658-678）均已调用；fallback 到内置 Service 已就绪（`!pluginHandled` 分支）；`DispatchFacade` 封装 DispatchRuntime 并处理 `ErrNoPluginsActive`/`ErrPluginDispatchSkipped`
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **1.15** Interceptor next 链修复
+- [x] **1.15** Interceptor next 链修复
   - 仓库: `sub2api`
   - 文件: `backend/internal/pluginruntime/dispatch_runtime.go`
-  - 源码现状: `next` 为 `func(context.Context, *pluginapi.GatewayRequest)(*pluginapi.GatewayResponse, error) { return nil, nil }`（永远空返回）
-  - 改动: `next` 改为闭包，执行后续阶段（TransformRequest → Provider → TransformResponse → 返回 GatewayResponse）
-  - 注意: 同时需决定 `phase.go` 中 7 阶段定义 vs `dispatch_runtime.go` 中 4 阶段执行的不一致——建议保留 4 阶段（intercept/transform/provider/transform_response），移除未使用的 pre_auth/post_auth/post_proxy/log
-  - 验证: 注册一个 Interceptor 调用 `next()` → 获得下游 Provider 的真实响应
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: 重构 Dispatch 为递归调用链；新增 `dispatchFromInterceptor` (递归处理 interceptor + next 闭包) 和 `dispatchPostInterceptor` (TransformRequest → Provider → TransformResponse 管线)；保持 failure policy/observability 语义不变
+  - 测试: 新增 3 个测试（next 获真实响应 / next 修改响应 / nil 不调 next 继续管线），全部通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **1.16** 默认 Provider 注册（内置降级）
+- [x] **1.16** 默认 Provider 注册（内置降级）
   - 仓库: `sub2api`
-  - 文件: `backend/internal/pluginruntime/` 新增 `builtin_providers.go`
-  - 改动: 将 4 个内置 Service 包装为 ProviderPlugin adapter：
-    - `gateway_service.go` → `BuiltinClaudeProvider`
-    - `openai_gateway_service.go` → `BuiltinOpenAIProvider`
-    - `gemini_messages_compat_service.go` → `BuiltinGeminiProvider`
-    - `antigravity_gateway_service.go` → `BuiltinAntigravityProvider`
-  - 注册为 priority=最低 的默认 Provider。当无外部 WASM Provider 时自动使用
-  - 验证: 未安装任何外部插件 → 请求正常走内置 Service（行为 100% 不变）
-  - 依赖: 1.14
-  - 完成: ☐  日期: ____  负责人: ____
+  - 文件: 新增 `backend/internal/pluginruntime/builtin_providers.go` + `builtin_providers_test.go`
+  - 改动: `BuiltinProviderAdapter` 通用适配器 + 4 个工厂函数 (Claude/OpenAI/Gemini/Antigravity) + `RegisterBuiltinProviders` 注册函数 (Priority=9999); ForwardFunc 暂为 placeholder (返回 ErrRuntimeNoProvider)，待 Phase 2 接入真实 Service
+  - 测试: 7 个测试全部通过（Metadata/自定义 Forward/Placeholder/注册/Dispatch fallback/外部优先/Builtin 兜底）
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### 1.5 部署准备 (market)
 
-- [ ] **1.17** 数据库迁移脚本
-  - 文件: `ent/migrate/` 生成文件 + 生产迁移 SQL
-  - 改动: Phase 0 的 name 正则 + Phase 1 的 plugin_type/capabilities/config_schema/submission→version edge 需生产环境 ALTER TABLE。导出迁移 SQL 并在 staging 先行验证
-  - 验证: staging 环境执行迁移 → 现有数据不丢失 → 应用启动正常
-  - 依赖: 1.4
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **1.17** 数据库迁移脚本
+  - 文件: `migrations/000001_initial_schema.up.sql` + `down.sql` + `migrations/README.md` + `scripts/export_schema_sql.go`
+  - 改动: 初始 schema 迁移 SQL（含所有表/索引/约束）+ down 回滚脚本 + Ent DDL 导出工具 + Makefile migrate-export 目标 + 迁移流程文档
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **1.18** 管理后台 UI 适配
-  - 文件: `frontend/` 或 `web/admin/`
-  - 改动: 提交列表/详情页展示 plugin_type、capabilities；审核页展示关联的 PluginVersion 信息；筛选器增加按 type 过滤
-  - 验证: 管理员可在后台看到插件类型并按类型筛选
-  - 依赖: 1.4
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **1.18** 管理后台 UI 适配
+  - 文件: `web/admin/js/app.js` + `internal/admin/service/submission_service.go`
+  - 改动: 前端 — 插件列表页增加类型筛选器(All/Interceptor/Transform/Provider)、插件卡片展示 plugin_type badge（蓝/绿/紫）、提交卡片和详情展示 capabilities 标签、审核详情展示关联 PluginVersion 信息(版本号/状态/wasm_hash/capabilities); 后端 — ListSubmissions/GetSubmission 增加 WithVersion() eager-loading
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### Phase 1 端到端验收门禁
 

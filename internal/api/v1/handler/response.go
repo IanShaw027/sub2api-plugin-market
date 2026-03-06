@@ -22,6 +22,15 @@ func Success(c *gin.Context, data interface{}) {
 	})
 }
 
+// SuccessCreated 创建成功响应（HTTP 201）
+func SuccessCreated(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusCreated, Response{
+		Code:    0,
+		Message: "success",
+		Data:    data,
+	})
+}
+
 // Error 错误响应
 func Error(c *gin.Context, code int, message string) {
 	c.JSON(httpStatusByCode(code), Response{
@@ -40,12 +49,18 @@ func ErrorWithStatus(c *gin.Context, httpStatus int, code int, message string) {
 
 // 错误码定义
 const (
-	ErrCodeInvalidParam  = 1001
-	ErrCodeNotFound      = 1002
-	ErrCodeInternalError = 1003
-	ErrCodeDatabaseError = 1004
-	ErrCodeStorageError  = 1005
-	ErrCodeForbidden     = 1006
+	ErrCodeInvalidParam       = 1001
+	ErrCodeNotFound           = 1002
+	ErrCodeInternalError      = 1003
+	ErrCodeDatabaseError      = 1004
+	ErrCodeStorageError       = 1005
+	ErrCodeForbidden          = 1006
+	ErrCodeManifestInvalid    = 1007
+	ErrCodeWasmHashMismatch   = 1008
+	ErrCodeSignatureInvalid   = 1009
+	ErrCodeSignKeyNotFound    = 1010
+	ErrCodeWasmUploadFailed   = 1011
+	ErrCodePendingLimitExceeded = 1012
 )
 
 // httpStatusByCode 根据业务错误码映射 HTTP 状态码
@@ -57,8 +72,12 @@ func httpStatusByCode(code int) int {
 		return http.StatusNotFound
 	case ErrCodeForbidden:
 		return http.StatusForbidden
-	case ErrCodeInternalError, ErrCodeDatabaseError, ErrCodeStorageError:
+	case ErrCodePendingLimitExceeded:
+		return http.StatusConflict
+	case ErrCodeInternalError, ErrCodeDatabaseError, ErrCodeStorageError, ErrCodeWasmUploadFailed:
 		return http.StatusInternalServerError
+	case ErrCodeManifestInvalid, ErrCodeWasmHashMismatch, ErrCodeSignatureInvalid, ErrCodeSignKeyNotFound:
+		return http.StatusBadRequest
 	default:
 		return http.StatusBadRequest
 	}

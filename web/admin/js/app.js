@@ -25,9 +25,32 @@ const utils = {
         const badges = {
             pending: '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">待审核</span>',
             approved: '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已通过</span>',
-            rejected: '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">已拒绝</span>'
+            rejected: '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">已拒绝</span>',
+            draft: '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">草稿</span>',
+            published: '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">已发布</span>'
         };
         return badges[status] || status;
+    },
+
+    getPluginTypeBadge(pluginType) {
+        if (!pluginType) return '';
+        const badges = {
+            provider: '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">provider</span>',
+            transform: '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">transform</span>',
+            interceptor: '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">interceptor</span>'
+        };
+        return badges[pluginType] || `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">${pluginType}</span>`;
+    },
+
+    getCapabilityBadges(capabilities) {
+        if (!capabilities || !capabilities.length) return '';
+        return capabilities.map(cap =>
+            `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">${cap}</span>`
+        ).join(' ');
+    },
+
+    getPluginFromSub(sub) {
+        return sub.edges?.plugin || {};
     },
 
     async request(url, options = {}) {
@@ -165,6 +188,12 @@ const views = {
             approved: 'border-green-200 bg-green-50',
             rejected: 'border-red-200 bg-red-50'
         };
+        const p = utils.getPluginFromSub(sub);
+        const pluginName = p.display_name || p.name || sub.plugin_name || '未命名插件';
+        const pluginSlug = p.name || sub.plugin_id;
+        const pluginType = p.plugin_type || '';
+        const version = sub.edges?.version;
+        const caps = version?.capabilities || [];
 
         return `
             <div class="plugin-card bg-white rounded-xl border-2 ${statusColors[sub.status] || 'border-gray-200'} p-6 cursor-pointer hover:shadow-lg transition-all"
@@ -172,16 +201,20 @@ const views = {
                 <div class="flex items-start justify-between mb-4">
                     <div class="flex items-center space-x-3">
                         <div class="h-12 w-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                            <span class="text-white font-bold text-lg">${(sub.plugin_name || 'P').charAt(0).toUpperCase()}</span>
+                            <span class="text-white font-bold text-lg">${pluginName.charAt(0).toUpperCase()}</span>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h3 class="text-lg font-semibold text-gray-900 truncate">${sub.plugin_name || '未命名插件'}</h3>
-                            <p class="text-sm text-gray-500 font-mono truncate">${sub.plugin_id}</p>
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <h3 class="text-lg font-semibold text-gray-900 truncate">${pluginName}</h3>
+                                ${utils.getPluginTypeBadge(pluginType)}
+                            </div>
+                            <p class="text-sm text-gray-500 font-mono truncate">${pluginSlug}</p>
                         </div>
                     </div>
                     ${utils.getStatusBadge(sub.status)}
                 </div>
-                <p class="text-sm text-gray-600 mb-4 line-clamp-2">${sub.description || sub.notes || '暂无描述'}</p>
+                <p class="text-sm text-gray-600 mb-3 line-clamp-2">${p.description || sub.notes || '暂无描述'}</p>
+                ${caps.length ? `<div class="flex flex-wrap gap-1 mb-3">${utils.getCapabilityBadges(caps)}</div>` : ''}
                 <div class="flex items-center justify-between text-xs text-gray-500 pt-4 border-t border-gray-100">
                     <div class="flex items-center space-x-4">
                         <div class="flex items-center">
@@ -205,6 +238,12 @@ const views = {
     async showSubmissionDetail(id) {
         const submission = await utils.request(`/submissions/${id}`);
         const reviewNotes = submission.reviewer_notes || submission.review_comment || '';
+        const p = utils.getPluginFromSub(submission);
+        const pluginName = p.display_name || p.name || submission.plugin_name || '未命名插件';
+        const pluginSlug = p.name || submission.plugin_id;
+        const pluginType = p.plugin_type || '';
+        const version = submission.edges?.version;
+
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
         modal.innerHTML = `
@@ -212,11 +251,14 @@ const views = {
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
                     <div class="flex items-center space-x-3">
                         <div class="h-12 w-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center">
-                            <span class="text-white font-bold text-lg">${(submission.plugin_name || 'P').charAt(0).toUpperCase()}</span>
+                            <span class="text-white font-bold text-lg">${pluginName.charAt(0).toUpperCase()}</span>
                         </div>
                         <div>
-                            <h3 class="text-xl font-bold text-gray-900">${submission.plugin_name || '未命名插件'}</h3>
-                            <p class="text-sm text-gray-500 font-mono">${submission.plugin_id}</p>
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-xl font-bold text-gray-900">${pluginName}</h3>
+                                ${utils.getPluginTypeBadge(pluginType)}
+                            </div>
+                            <p class="text-sm text-gray-500 font-mono">${pluginSlug}</p>
                         </div>
                     </div>
                     <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
@@ -227,11 +269,38 @@ const views = {
                 </div>
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
                     <div><label class="block text-sm font-medium text-gray-700 mb-2">状态</label>${utils.getStatusBadge(submission.status)}</div>
-                    <div><label class="block text-sm font-medium text-gray-700 mb-2">描述</label><p class="text-sm text-gray-900 bg-gray-50 rounded-lg p-4">${submission.description || submission.notes || '暂无描述'}</p></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-2">描述</label><p class="text-sm text-gray-900 bg-gray-50 rounded-lg p-4">${p.description || submission.notes || '暂无描述'}</p></div>
                     <div class="grid grid-cols-2 gap-4">
                         <div><label class="block text-sm font-medium text-gray-700 mb-2">提交者</label><p class="text-sm text-gray-900">${submission.submitter_name}</p></div>
                         <div><label class="block text-sm font-medium text-gray-700 mb-2">邮箱</label><p class="text-sm text-gray-900">${submission.submitter_email}</p></div>
                     </div>
+                    ${version ? `
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 space-y-3">
+                        <h4 class="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                            关联版本信息
+                        </h4>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <span class="text-indigo-700 font-medium">版本：</span>
+                                <span class="text-indigo-900 font-mono">${version.version || '-'}</span>
+                            </div>
+                            <div>
+                                <span class="text-indigo-700 font-medium">状态：</span>
+                                ${utils.getStatusBadge(version.status)}
+                            </div>
+                            ${version.wasm_hash ? `
+                            <div class="col-span-2">
+                                <span class="text-indigo-700 font-medium">WASM Hash：</span>
+                                <span class="text-indigo-900 font-mono text-xs break-all">${version.wasm_hash}</span>
+                            </div>` : ''}
+                        </div>
+                        ${version.capabilities?.length ? `
+                        <div>
+                            <span class="text-indigo-700 font-medium text-sm">Capabilities：</span>
+                            <div class="flex flex-wrap gap-1 mt-1">${utils.getCapabilityBadges(version.capabilities)}</div>
+                        </div>` : ''}
+                    </div>` : ''}
                     ${reviewNotes ? `<div><label class="block text-sm font-medium text-gray-700 mb-2">审核意见</label><p class="text-sm text-gray-900 bg-blue-50 rounded-lg p-4 border border-blue-200">${reviewNotes}</p></div>` : ''}
                 </div>
                 ${submission.status === 'pending' ? `
@@ -312,14 +381,105 @@ const views = {
         `;
     },
 
-    async renderPlugins() {
+    _pluginTypeFilter: '',
+
+    async renderPlugins(pluginType) {
+        if (pluginType !== undefined) this._pluginTypeFilter = pluginType;
+        const pt = this._pluginTypeFilter;
+
+        const params = new URLSearchParams();
+        params.append('page', '1');
+        params.append('page_size', '50');
+        if (pt) params.append('plugin_type', pt);
+
+        const result = await utils.request(`/plugins?${params}`);
+        const plugins = result.plugins || [];
+
         document.getElementById('contentArea').innerHTML = `
-            <div class="text-center py-20">
-                <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">插件管理</h3>
-                <p class="text-gray-500">功能开发中...</p>
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">插件管理</h2>
+                <p class="text-gray-600">管理所有已注册的插件</p>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm font-medium text-gray-700 mr-1">类型筛选：</span>
+                    <button onclick="views.renderPlugins('')" class="px-4 py-2 text-sm font-medium rounded-lg ${pt === '' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'text-gray-600 hover:bg-gray-50'}">
+                        全部 (${result.total || 0})
+                    </button>
+                    <button onclick="views.renderPlugins('interceptor')" class="px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-1.5 ${pt === 'interceptor' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'text-gray-600 hover:bg-gray-50'}">
+                        <span class="inline-block w-2 h-2 bg-purple-400 rounded-full"></span>Interceptor
+                    </button>
+                    <button onclick="views.renderPlugins('transform')" class="px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-1.5 ${pt === 'transform' ? 'bg-green-50 text-green-700 border border-green-200' : 'text-gray-600 hover:bg-gray-50'}">
+                        <span class="inline-block w-2 h-2 bg-green-400 rounded-full"></span>Transform
+                    </button>
+                    <button onclick="views.renderPlugins('provider')" class="px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-1.5 ${pt === 'provider' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'text-gray-600 hover:bg-gray-50'}">
+                        <span class="inline-block w-2 h-2 bg-blue-400 rounded-full"></span>Provider
+                    </button>
+                </div>
+            </div>
+
+            ${plugins.length === 0 ? `
+                <div class="text-center py-20">
+                    <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">暂无插件</h3>
+                    <p class="text-gray-500">当前没有符合条件的插件</p>
+                </div>
+            ` : `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${plugins.map(p => this.renderPluginCard(p)).join('')}
+                </div>
+            `}
+        `;
+    },
+
+    renderPluginCard(p) {
+        const typeGradients = {
+            provider: 'from-blue-400 to-blue-600',
+            transform: 'from-green-400 to-green-600',
+            interceptor: 'from-purple-400 to-purple-600'
+        };
+        const gradient = typeGradients[p.plugin_type] || 'from-gray-400 to-gray-600';
+
+        return `
+            <div class="plugin-card bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-12 w-12 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center flex-shrink-0">
+                            <span class="text-white font-bold text-lg">${(p.display_name || p.name || 'P').charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <h3 class="text-lg font-semibold text-gray-900 truncate">${p.display_name || p.name}</h3>
+                                ${utils.getPluginTypeBadge(p.plugin_type)}
+                            </div>
+                            <p class="text-sm text-gray-500 font-mono truncate">${p.name}</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-600 mb-4 line-clamp-2">${p.description || '暂无描述'}</p>
+                <div class="flex items-center justify-between text-xs text-gray-500 pt-4 border-t border-gray-100">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center">
+                            <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            ${p.author || '-'}
+                        </div>
+                        <div class="flex items-center">
+                            <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            ${p.download_count || 0}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${p.is_official ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">官方</span>' : ''}
+                        ${p.status === 'active' ? '<span class="inline-block w-2 h-2 bg-green-400 rounded-full" title="active"></span>' : '<span class="inline-block w-2 h-2 bg-gray-300 rounded-full" title="' + p.status + '"></span>'}
+                    </div>
+                </div>
             </div>
         `;
     }

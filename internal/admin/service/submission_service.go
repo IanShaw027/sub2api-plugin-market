@@ -29,7 +29,7 @@ func NewSubmissionService(client *ent.Client) *SubmissionService {
 
 // ListSubmissions 获取提交列表
 func (s *SubmissionService) ListSubmissions(ctx context.Context, status string, page, pageSize int) ([]*ent.Submission, int, error) {
-	query := s.client.Submission.Query().WithPlugin()
+	query := s.client.Submission.Query().WithPlugin().WithVersion()
 
 	// 状态筛选
 	if status != "" {
@@ -61,7 +61,7 @@ func (s *SubmissionService) GetSubmission(ctx context.Context, id string) (*ent.
 	if err != nil {
 		return nil, err
 	}
-	return s.client.Submission.Query().Where(submission.IDEQ(uid)).WithPlugin().Only(ctx)
+	return s.client.Submission.Query().Where(submission.IDEQ(uid)).WithPlugin().WithVersion().Only(ctx)
 }
 
 // ReviewSubmission 审核提交

@@ -77,7 +77,7 @@ func main() {
 	pluginService := service.NewPluginService(pluginRepo)
 	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
 	downloadService := service.NewDownloadService(pluginRepo, storageBackend, client, verificationService)
-	submissionService := service.NewSubmissionService(client)
+	submissionService := service.NewSubmissionService(client, storageBackend)
 	syncService := service.NewSyncService(client, storageBackend)
 
 	pluginHandler := handler.NewPluginHandler(pluginService)

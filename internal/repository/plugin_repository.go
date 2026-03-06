@@ -95,11 +95,11 @@ func (r *PluginRepository) ListPlugins(ctx context.Context, category, search, pl
 }
 
 // tagsContainFold matches plugins whose JSON tags array contains the search
-// string (case-insensitive). Uses PostgreSQL cast + ILIKE.
+// string (case-insensitive). Uses CAST + LOWER for cross-database compatibility.
 func tagsContainFold(search string) predicate.Plugin {
 	return func(s *entsql.Selector) {
 		s.Where(entsql.P(func(b *entsql.Builder) {
-			b.WriteString("tags::text ILIKE ")
+			b.WriteString("LOWER(CAST(tags AS TEXT)) LIKE ")
 			b.Arg("%" + search + "%")
 		}))
 	}

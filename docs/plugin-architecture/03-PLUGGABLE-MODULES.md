@@ -6,7 +6,40 @@
 
 ## 概述
 
-本文档分析 sub2api 主项目中可以抽取为插件的模块，按可行性分为三档。共识别出 **12 个候选插件**：4 个 Provider、3 个 Transform、5 个 Interceptor。
+本文档分析 sub2api 主项目中可以抽取为插件的模块，按可行性分为三档。共识别出 **12 个候选插件**：4 个 Provider、4 个 Transform、3 个 Interceptor、1 个内置可选。
+
+---
+
+## WASM 运行时限制（关键约束）
+
+在评估可行性前，必须理解以下 WASM 技术限制：
+
+| 限制 | 说明 | 影响范围 |
+|------|------|---------|
+| **TinyGo goroutine** | TinyGo 编译的 WASM 在导出函数中无法安全使用 goroutine | 所有 Provider 的 SSE 流式处理 |
+| **Host API HTTP 无流式** | `host_api_http.go` 使用 `io.ReadAll`，只能返回完整 body | Provider 无法在插件内做 SSE 转发 |
+| **StreamWriter 无 Flush** | 当前接口缺少 `Flush()`、`SetStatus()`、客户端断开检测 | 流式写入能力不完整 |
+| **内存边界** | 大 JSON 转换峰值内存可达 body 的 3-5 倍 | Transform 处理超长对话时可能 OOM |
+
+**核心结论**：Transform / Interceptor 类插件（纯数据转换）可直接以 WASM 实现。Provider 类插件需要 **Host 负责流式编排** 的架构支持（见下文）。
+
+### Provider 插件的可行架构：Host 流式编排
+
+```
+核心选号/Token → 调用插件
+                    │
+                    ├─ 非流式: 插件通过 Host API HTTP → 完整 Body → 解析 → StreamWriter
+                    │
+                    └─ 流式: 插件返回 StreamDelegate（URL + Headers）
+                             → Host 发起流式 HTTP（goroutine + channel）
+                             → 每行回调插件 OnSSELine(line) 做转换
+                             → Host 通过 StreamWriter 写出
+```
+
+需要扩展：
+- `ProviderPlugin` 增加 `HandleStreaming()` 或 `OnSSELine()` 回调接口
+- Host API HTTP 增加流式 Fetch 能力
+- StreamWriter 增加 `Flush()` 和客户端断开检测
 
 ---
 
@@ -14,13 +47,13 @@
 
 | 等级 | 含义 | 条件 |
 |------|------|------|
-| 🟢 高 | 应该插件化 | 逻辑独立、边界清晰、无核心状态依赖 |
-| 🟡 中 | 抽象后可插件化 | 需要先定义新接口或重构共享逻辑 |
-| 🔴 低 | 保留在核心 | 涉及安全/资金/全局协调 |
+| 🟢 高 | 可直接 WASM 插件化 | 纯数据转换、无 I/O、无并发 |
+| 🟡 中 | 需架构支持后可插件化 | 依赖 Host 流式编排或接口扩展 |
+| 🔴 低 | 保留在核心 | 涉及安全/资金/全局协调/操作系统级 |
 
 ---
 
-## 🟢 高可行性 — 应优先插件化
+## 🟡 需架构支持 — Provider 插件
 
 ### P-01: claude-provider
 
@@ -32,12 +65,13 @@
 | **外部依赖** | HTTP 上游 (`api.anthropic.com`) |
 | **需要的 Host API** | HTTP Fetch |
 | **抽取难度** | 中 — 需要把账号选择、Token 获取从 Forward 中分离 |
+| **WASM 限制** | SSE 流式需 Host 编排；thinking 签名重试归属待定 |
 
 **抽取方案**：
-- 核心提供：已选好的 Account + Token + 请求 Body
-- 插件负责：构建 Anthropic 请求 Header、转发、解析 SSE、提取 Usage
-- 插件输入：`GatewayRequest` + `Account` metadata
-- 插件输出：`GatewayResponse` 或 SSE 流（通过 `StreamWriter`）
+- 核心提供：已选好的 Account + Token + 请求 Body（通过 `ProviderContext`）
+- 插件负责：构建 Anthropic 请求 Header、非流式转发、响应解析、Usage 提取
+- 流式场景：插件提供 `OnSSELine()` 回调，Host 负责 goroutine + channel + keepalive
+- 核心保留：Token 获取刷新、identity 指纹注入、rateLimitService 调用、failover 账号切换
 
 ---
 
@@ -53,9 +87,11 @@
 | **抽取难度** | 中 — Codex OAuth 路径较复杂 |
 
 **抽取方案**：
-- 核心提供：Account（含 OAuth/API Key 凭证）、Body
-- 插件负责：URL 构建（Codex vs Platform）、Header 构建、转发、SSE 解析、Usage 提取
-- 特殊处理：Codex Usage 来自响应 Header，需要插件回传 metadata
+- 核心提供：Account（含 OAuth/API Key 凭证）、Body（通过 `ProviderContext`）
+- 插件负责：URL 构建（Codex vs Platform）、Header 构建、响应解析、Usage 提取
+- 流式场景：Host 编排，插件提供 `OnSSELine()` 回调
+- 特殊处理：Codex Usage 来自响应 Header，由 Host 提取后注入回调参数
+- 核心保留：OAuth 刷新（在 TokenProvider 内）、Codex Usage Snapshot 写入 account、failover
 
 ---
 
@@ -72,8 +108,10 @@
 
 **抽取方案**：
 - 可拆分为 `gemini-provider` (转发) + `claude-gemini-transform` (转换)
-- 核心提供：Account、Token、目标格式（Claude or Gemini native）
-- 插件负责：请求转换、转发、响应转换、SSE 流式
+- 核心提供：Account、Token、目标格式（通过 `ProviderContext`）
+- 插件负责：请求构建（AI Studio vs Code Assist URL）、响应解析
+- 流式场景：Host 编排，插件提供 `OnSSELine()` 做 Gemini→Claude SSE 转换
+- 核心保留：Token 获取、HandleGeminiUpstreamError、HandleTempUnschedulable、failover
 
 ---
 
@@ -91,6 +129,10 @@
 **抽取方案**：
 - 可拆分为 `antigravity-provider` (转发) + `antigravity-transform` (转换)
 - 转换层 (`pkg/antigravity/`) 已经是独立模块，天然适合抽取
+- 核心提供：Account、Token、BaseURLs 列表（通过 `ProviderContext`）
+- 插件内重试：URL fallback + 429 是 Antigravity 特有逻辑，适合在插件内处理
+- 流式场景：Host 编排，插件提供 `OnSSELine()` 做 Gemini→Claude SSE 转换
+- 核心保留：Token 获取、PromptTooLongError 判断、failover 触发、rateLimitService
 
 ---
 
@@ -110,6 +152,8 @@
 - `TransformResponse`: Gemini candidates → Claude content blocks
 - 特殊处理：thinking blocks、tool_use/tool_result、system prompt、cache_control
 
+**WASM 注意**：大 JSON 转换峰值内存可达 body 的 3-5 倍（原始 + map + 序列化），超长对话/多图/大工具 schema 时需设上限（建议 2MB body limit）。
+
 ---
 
 ### T-02: antigravity-transform
@@ -117,7 +161,7 @@
 | 属性 | 值 |
 |------|-----|
 | **插件类型** | `TransformPlugin` |
-| **当前代码** | `pkg/antigravity/request_transformer.go` + `response_transformer.go` + `stream_transformer.go` |
+| **当前代码** | `pkg/antigravity/request_transformer.go` + `response_transformer.go` + `stream_transformer.go` + `schema_cleaner.go` |
 | **核心逻辑** | Claude ↔ Gemini 转换（Antigravity 特化版本），流式 SSE 转换 |
 | **外部依赖** | 无 |
 | **需要的 Host API** | 无 |
@@ -128,6 +172,8 @@
 - `response_transformer.go` → `TransformGeminiToClaude()` → `TransformResponse`
 - `stream_transformer.go` → `NewStreamingProcessor()` → SSE 流式转换 + `NewNonStreamingProcessor()` → 非流式转换
 - `schema_cleaner.go` → `CleanJSONSchema()` + `DeepCleanUndefined()` → Schema 清理辅助
+
+**WASM 注意**：`StreamingProcessor` 的 `ProcessLine()` 本身是同步的（处理单行 SSE），但调用方在 goroutine 中循环调用。WASM 化时，转换逻辑可迁入插件（`OnSSELine` 回调），流式管道编排必须由 Host 完成。
 
 ---
 
@@ -142,7 +188,7 @@
 | **需要的 Host API** | 无 |
 | **抽取难度** | 低 — 纯数据转换 |
 
-> **注意**: 工具名矫正在 `openai_tool_corrector.go`（非 `openai_codex_transform.go`）；`openai_codex_transform.go` 主要是 Codex OAuth 请求转换逻辑，属于核心。
+> **注意**: 工具名矫正在 `openai_tool_corrector.go`；Codex OAuth 请求转换逻辑在 `openai_gateway_service.go` 内部，属于核心。
 
 ---
 
@@ -169,14 +215,14 @@
 
 | 属性 | 值 |
 |------|-----|
-| **插件类型** | `InterceptorPlugin` |
+| **插件类型** | 内置可选模块（非 WASM 插件） |
 | **当前代码** | `pkg/tlsfingerprint/dialer.go` + `registry.go` |
 | **核心逻辑** | TLS ClientHello 指纹伪装，可选能力 |
 | **外部依赖** | 无 |
-| **需要的 Host API** | 无（需要特殊的网络层 Hook） |
-| **抽取难度** | 高 — 涉及底层 TCP/TLS 连接，WASM 沙箱可能无法直接操作 |
+| **需要的 Host API** | 不适用（需要操作系统级网络访问） |
+| **抽取难度** | 高 — 涉及底层 TCP/TLS 连接，WASM 沙箱无法直接操作 |
 
-> **注意**: 此模块可能更适合作为「内置可选插件」而非 WASM 插件，因为 TLS 指纹需要操作系统级网络访问。
+> **注意**: 此模块更适合作为「内置可选模块」（配置开关），而非 WASM 插件。TLS 指纹需要操作系统级 TCP 连接控制，超出 WASM 沙箱能力。
 
 ---
 
@@ -255,20 +301,48 @@
 
 ## 插件清单汇总
 
-| 编号 | 插件名 | 类型 | 可行性 | 抽取难度 | 代码量估计 |
-|------|--------|------|--------|---------|-----------|
-| P-01 | `claude-provider` | Provider | 🟢 高 | 中 | ~800 行 |
-| P-02 | `openai-provider` | Provider | 🟢 高 | 中 | ~700 行 |
-| P-03 | `gemini-provider` | Provider | 🟢 高 | 高 | ~1200 行 |
-| P-04 | `antigravity-provider` | Provider | 🟢 高 | 高 | ~1000 行 |
-| T-01 | `claude-gemini-transform` | Transform | 🟢 高 | 中 | ~600 行 |
-| T-02 | `antigravity-transform` | Transform | 🟢 高 | 低 | ~800-1000 行 |
-| T-03 | `codex-tool-corrector` | Transform | 🟢 高 | 低 | ~350-400 行 |
-| I-01 | `model-mapper` | Interceptor | 🟢 高 | 低 | ~300 行 |
-| I-02 | `tls-fingerprint` | Interceptor | 🟡 中 | 高 | ~400 行 |
-| I-03 | `claude-code-validator` | Interceptor | 🟢 高 | 低 | ~150 行 |
-| I-04 | `gemini-signature-cleaner` | Interceptor | 🟢 高 | 低 | ~100 行 |
-| I-05 | `error-mapper` | Transform | 🟢 高 | 中 | ~300 行 |
+> **代码量说明**: 下表中的「代码量估计」指**抽取后的插件代码量**（仅含需要迁入插件的逻辑），而非当前源文件的总行数。实际源文件通常更大（含核心耦合部分、测试等），抽取时需进一步核对。
+
+| 编号 | 插件名 | 类型 | WASM 可行性 | 抽取难度 | 前置条件 | 代码量估计 |
+|------|--------|------|-----------|---------|---------|-----------|
+| P-01 | `claude-provider` | Provider | ⚠️ 需 Host 流式编排 | 中 | Host 流式 HTTP + OnSSELine 回调 | ~800 行 |
+| P-02 | `openai-provider` | Provider | ⚠️ 需 Host 流式编排 | 中 | 同上 + Usage Header 提取 | ~700 行 |
+| P-03 | `gemini-provider` | Provider | ⚠️ 需 Host 流式编排 | 高 | 同上 + 内存限制 | ~1200 行 |
+| P-04 | `antigravity-provider` | Provider | ⚠️ 需 Host 流式编排 | 高 | 同上 + BaseURLs 列表 | ~1000 行 |
+| T-01 | `claude-gemini-transform` | Transform | ✅ 直接可行 | 中 | body ≤ 2MB 限制 | ~600 行 |
+| T-02 | `antigravity-transform` | Transform | ✅ 直接可行 | 低 | 流式管道由 Host 编排 | ~800-1000 行 |
+| T-03 | `codex-tool-corrector` | Transform | ✅ 直接可行 | 低 | 无 | ~350-400 行 |
+| I-01 | `model-mapper` | Interceptor | ✅ 直接可行 | 低 | 无 | ~300 行 |
+| I-02 | `tls-fingerprint` | 内置可选模块 | ❌ 操作系统级 | 高 | N/A (非 WASM) | ~400 行 |
+| I-03 | `claude-code-validator` | Interceptor | ✅ 直接可行 | 低 | 无 | ~150 行 |
+| I-04 | `gemini-signature-cleaner` | Interceptor | ✅ 直接可行 | 低 | 无 | ~100 行 |
+| I-05 | `error-mapper` | Transform | ✅ 直接可行 | 中 | 无 | ~300 行 |
+
+### Provider 抽取时核心必须保留的能力
+
+无论哪个 Provider 被插件化，以下能力必须保留在核心侧：
+
+| 能力 | 理由 |
+|------|------|
+| Token 获取与刷新 | 凭证安全，插件不可接触 refresh_token |
+| rateLimitService 调用 | 全局限流状态，跨请求/跨账号 |
+| accountRepo 状态更新 | SetRateLimited / SetAntigravityQuotaScopeLimit 等 |
+| Failover 账号切换 | 跨账号调度，需全局视图 |
+| Ops 错误记录 | 全局可观测性 |
+| Usage 计费写入 | 资金安全 |
+
+### Provider 数据回传约定
+
+插件执行后需通过 `GatewayResponse.Metadata` 回传以下信息供核心计费和监控：
+
+| Key | 类型 | 用途 |
+|-----|------|------|
+| `usage` | `{input, output, cache_creation, cache_read}` | 计费必需 |
+| `model` | string | 实际计费模型 |
+| `request_id` | string | 上游 request-id，审计追踪 |
+| `first_token_ms` | *int | 首 token 延迟，性能监控 |
+| `failover` | bool | 是否应触发核心账号切换 |
+| `image_count` / `image_size` | int / string | 图片模型计费 |
 
 ### 潜在候选（未来可考虑）
 
@@ -276,7 +350,7 @@
 
 | 模块 | 类型 | 来源 | 说明 |
 |------|------|------|------|
-| `gemini-retry-stripper` | Transform | `gemini_messages_compat_service.go` | 签名重试时降级 thinking/tool 块 (`FilterThinkingBlocksForRetry`) |
+| `gemini-retry-stripper` | Transform | `service/gateway_request.go`（定义处），在 `gemini_messages_compat_service.go` 等处被调用 | 签名重试时降级 thinking/tool 块 (`FilterThinkingBlocksForRetry`) |
 | `gemini-thought-signature-injector` | Transform | `gemini_messages_compat_service.go` | 为 functionCall 注入 `thoughtSignature` |
 | `response-header-filter` | Interceptor | `util/responseheaders/` | 响应头过滤 |
 | `gemini-schema-cleaner` | Transform | `gemini_messages_compat_service.go` | Gemini 请求 Schema 清理，与 T-02 类似 |

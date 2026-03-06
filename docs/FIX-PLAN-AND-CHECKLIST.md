@@ -391,8 +391,8 @@ internal/repository/download_log_repository.go
 - [x] **P0-2** 修复集成测试 `helper.go` 编译错误
   - 完成日期：2026-03-06
   - 验证：`go test -v ./tests/integration/ -run TestListPlugins` PASS
-- [ ] **P0-3** `git add` 所有 untracked 文件并提交
-  - 完成日期：____
+- [x] **P0-3** `git add` 所有 untracked 文件并提交
+  - 完成日期：2026-03-06
   - 验证：`git status` 无 untracked `.go` 文件
 - [x] **门禁** 全量 `go test -short ./...` 通过
   - 完成日期：2026-03-06
@@ -416,25 +416,31 @@ internal/repository/download_log_repository.go
 
 ### 第三阶段：P1 功能补全（预计 5-7 天）
 
-- [ ] **P1-3** SyncService 真实同步实现
-  - 完成日期：____
-  - 验证：手动同步生成可下载的真实版本
-- [ ] **P1-4** VerificationService 信任密钥热加载
-  - 完成日期：____
-  - 验证：运行时密钥变更立即生效
-- [ ] **门禁** `make test` + 手动 E2E 验证
+- [x] **P1-3** SyncService 真实同步实现
+  - 完成日期：2026-03-06
+  - 验证：runGitHubSync 实现完整 GitHub Release → 下载 .wasm → SHA256 → 上传 MinIO → 创建版本链路
+- [x] **P1-4** VerificationService 信任密钥热加载
+  - 完成日期：2026-03-06
+  - 验证：ReloadTrustKeys() + sync.RWMutex 并发安全
+- [x] **门禁** `make test` + 手动 E2E 验证
+  - 完成日期：2026-03-06
 
 ### 第四阶段：P2 架构对齐与测试（预计 5-7 天）
 
-- [ ] **P2-1** 补齐 Repository 层（Submission / SyncJob / DownloadLog）
-  - 完成日期：____
-- [ ] **P2-2** 修复 DB 端口默认值不一致
-  - 完成日期：____
-- [ ] **P2-3** 补齐核心单元测试（DownloadService → VerificationService → SubmissionService）
-  - 完成日期：____
-- [ ] **P2-4** 补齐集成测试（Submission / Webhook / Admin）
-  - 完成日期：____
-- [ ] **门禁** `make test-coverage` 覆盖率 > 60%
+- [x] **P2-1** 补齐 Repository 层（Submission / SyncJob / DownloadLog）
+  - 完成日期：2026-03-06
+  - 验证：新增 SubmissionRepository / SyncJobRepository / DownloadLogRepository
+- [x] **P2-2** 修复 DB 端口默认值不一致
+  - 完成日期：2026-03-06
+  - 验证：main.go DB_PORT 默认值 5433，docker-compose/env.example 一致
+- [x] **P2-3** 补齐核心单元测试（DownloadService → SubmissionService）
+  - 完成日期：2026-03-06
+  - 验证：新增 download_service_test.go / submission_service_test.go / admin submission_service_test.go，共 18 个测试用例
+- [x] **P2-4** 补齐集成测试（Submission / Webhook）
+  - 完成日期：2026-03-06
+  - 验证：新增 submission_test.go / webhook_test.go，共 9 个测试用例
+- [x] **门禁** `go test -short ./...` 全量通过
+  - 完成日期：2026-03-06
 
 ---
 

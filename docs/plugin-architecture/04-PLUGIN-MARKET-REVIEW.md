@@ -235,10 +235,10 @@ sub2api 安装时用此 Schema 生成配置表单。
 | Plugin | ✅ | 主表设计合理，包含分类、官方标记、下载量 |
 | PluginVersion | ✅ | 含 WASM 签名全套字段 |
 | Submission | ✅ | 审核流状态机清晰 |
-| TrustKey | ✅ | 支持多级信任（official/verified/community） |
+| TrustKey | ✅ | 支持多级信任（official/verified_publisher/community） |
 | DownloadLog | ✅ | IP 哈希保护隐私 |
 | AdminUser | ✅ | 角色分级合理 |
-| SyncJob | ✅ | 设计合理，但实现是占位 |
+| SyncJob | ✅ | 设计合理，已实现完整 GitHub Release 同步流程 |
 
 ### 5.2 建议新增字段
 
@@ -259,10 +259,11 @@ sub2api 安装时用此 Schema 生成配置表单。
 | `GET /plugins` | ✅ | 增加 `?type=` 筛选 |
 | `GET /plugins/:name` | ✅ | — |
 | `GET /plugins/:name/versions` | 🟡 | 增加 `?compatible_with=` |
+| `GET /trust-keys/:key_id` | ✅ | — |
 | `GET /plugins/:name/versions/:version/download` | ✅ | 302 + 预签名 URL 设计好 |
 | `GET /trust-keys` | ✅ | — |
-| `POST /submissions` | ✅ | — |
-| `POST /integrations/github/webhook` | ✅ | — |
+| `POST /submissions` | 🔴 | **无认证**，需增加 rate limit 或 Token 校验（见 7.1） |
+| `POST /integrations/github/webhook` | 🔴 | secret 为空时跳过 HMAC 校验（见 7.1） |
 
 ### 6.2 Admin API
 
@@ -270,14 +271,52 @@ sub2api 安装时用此 Schema 生成配置表单。
 |------|------|---------|
 | `GET /submissions` | ✅ | — |
 | `PUT /submissions/:id/review` | 🟡 | 审批后联动版本发布 |
-| `POST /plugins/:id/sync` | 🟡 | 需要真实实现 |
+| `POST /plugins/:id/sync` | ✅ | 已实现，可增强（见 4.2.1） |
 | `GET /sync-jobs` | ✅ | — |
 
 ---
 
-## 7. 与主项目集成评审
+## 7. 安全与稳定性深度审查
 
-### 7.1 集成点
+### 7.1 🔴 安全漏洞
+
+| 问题 | 严重度 | 代码位置 | 建议 |
+|------|--------|----------|------|
+| **POST /submissions 无认证** | P0 | `api/v1/router.go`、`service/submission_service.go` | 任何人可提交插件，易被滥用（垃圾提交、恶意占名）。增加 rate limit 或 Token 校验 |
+| **GITHUB_WEBHOOK_SECRET 为空时跳过签名校验** | P0 | `api/v1/handler/github_webhook_handler.go` | `if h.secret != ""` 才校验。生产环境未配置时应拒绝处理 webhook |
+| **插件名未校验路径遍历** | P1 | `ent/schema/plugin.go`、`service/sync_service.go` | `name` 仅 `NotEmpty()`，未限制 `/`、`..`。Sync 使用 `fmt.Sprintf("plugins/%s/%s/plugin.wasm", name, ref)`，恶意 name 可导致存储路径越界。加正则 `^[a-z0-9][a-z0-9-]*$` |
+| **管理员审核无角色分级** | P1 | `admin/router.go` | 审核路由仅用 `AdminAuth`，未使用 `RequireRole`。reviewer 可审核 official 插件。对 `is_official=true` 仅允许 super_admin/admin 审核 |
+
+### 7.2 🟡 数据完整性
+
+| 问题 | 严重度 | 代码位置 | 建议 |
+|------|--------|----------|------|
+| **Submission 审核与 Plugin 更新非原子** | P1 | `admin/service/submission_service.go` | `ReviewSubmission` 先更新 Submission 再更新 Plugin，无事务。Plugin 更新失败时状态不一致。用 `client.Tx()` 包裹 |
+| **Submission 与 Version 无关联** | P1 | `service/submission_service.go` | `CreateSubmission` 只创建 Plugin + Submission，不创建 PluginVersion。审核通过只更新元数据，不发布版本。需明确审核→版本发布流程 |
+| **SyncJob 失败产生孤儿 WASM** | P1 | `service/sync_service.go` | 执行顺序：上传 WASM → 检查版本 → 创建版本。Create 失败时 WASM 已写入存储。建议先检查再上传，或失败时清理 |
+| **Sync 创建 draft 无签名** | P1 | `service/sync_service.go` | Sync 创建 `status=draft`、`signature=""`、`sign_key_id=""` 的版本。下载仅返回 `published`，且验签要求 `sign_key_id` 非空。当前 GitHub 同步的版本无法被下载。需实现签名→发布流程 |
+
+### 7.3 🟡 并发竞态
+
+| 问题 | 严重度 | 代码位置 | 建议 |
+|------|--------|----------|------|
+| **手动 Sync 与 Webhook Sync 并发** | P1 | `admin/handler/sync_handler.go`、`api/v1/handler/github_webhook_handler.go` | 手动同步执行 + Webhook 异步执行可能同时跑 `runGitHubSync`。`versionAvailable` 与 `Create` 之间无锁，可产生竞态和孤儿 WASM。对 `(plugin_id, target_ref)` 加分布式锁 |
+| **双管理员同时审核** | P2 | `admin/service/submission_service.go` | 无乐观锁，后者覆盖前者。审核前检查 `status == pending`，用条件更新 |
+| **同一插件多笔 pending Submission** | P2 | `service/submission_service.go` | 无限制，同一插件可多次提交。限制每插件同时 pending 数量 |
+
+### 7.4 可扩展性
+
+| 问题 | 严重度 | 建议 |
+|------|--------|------|
+| **列表 API 无缓存** | P2 | 1000+ 插件时直接查库压力大。对列表结果短期缓存（1-5 分钟） |
+| **预签名 URL 无缓存** | P2 | 每次下载都生成新 URL。对相同 `(wasm_url, expiry)` 短时缓存 |
+| **Trust Key 轮换影响旧版本** | P2 | Key 设为 `IsActive=false` 后，用旧 key 签名的版本无法通过验签。需支持多代 key 并存过渡期 |
+
+---
+
+## 8. 与主项目集成评审
+
+### 8.1 集成点
 
 | 集成方式 | 评价 |
 |---------|------|
@@ -288,10 +327,14 @@ sub2api 安装时用此 Schema 生成配置表单。
 | 错误码契约 | ✅ CI 校验 |
 | OpenAPI 契约 | ✅ Spec 同步 |
 
-### 7.2 缺失的集成
+### 8.2 缺失的集成
 
 | 缺失项 | 影响 | 建议 |
 |--------|------|------|
 | 插件类型感知 | sub2api 不知道插件属于哪个阶段 | 加 `plugin_type` 字段 |
 | 兼容性查询 API | sub2api 需要自己做兼容性过滤 | 增加服务端过滤 |
 | 插件配置分发 | 市场没有配置模板能力 | P2 阶段实现 |
+
+---
+
+> **下一步**: 本文档的改进建议已纳入实施计划，详见 [05-EXTRACTION-ROADMAP.md](./05-EXTRACTION-ROADMAP.md)。

@@ -100,14 +100,14 @@
 | Ops 聚合 | `service/ops_aggregation_service.go` | 定时聚合统计 |
 | Ops 仪表盘 | `service/ops_dashboard.go` | 运维面板数据 |
 | Ops 告警 | `service/ops_alert_evaluator_service.go` | 告警规则评估 |
-| Ops 实时流量 | `service/ops_realtime.go`, `ops_realtime_traffic.go` | 实时监控 |
+| Ops 实时流量 | `service/ops_realtime.go`, `service/ops_realtime_traffic.go` | 实时监控 |
 | Ops 清理 | `service/ops_cleanup_service.go` | 历史数据归档 |
 | Ops 报表 | `service/ops_scheduled_report_service.go` | 定时报告 |
 | Ops 其他 | `service/ops_*.go` (模型、类型、配置) | 辅助类型 |
 
 ## 8. 请求转发核心
 
-Gateway 是计费、调度、限流、并发控制的交汇点，虽然 Provider 逻辑可插件化（见 03-PLUGGABLE-MODULES），但 Gateway Handler 本身是核心调度入口。
+Gateway 是计费、调度、限流、并发控制的交汇点，虽然 Provider 逻辑可插件化（见 [03-PLUGGABLE-MODULES.md](./03-PLUGGABLE-MODULES.md)），但 Gateway Handler 本身是核心调度入口。
 
 | 模块 | 代码路径 | 职责 | 不可外移理由 |
 |------|---------|------|-------------|
@@ -133,7 +133,7 @@ Gateway 是计费、调度、限流、并发控制的交汇点，虽然 Provider
 | 公告管理 | `handler/admin/announcement_handler.go` | 公告管理 |
 | 用量管理 | `handler/admin/usage_handler.go` | 用量统计 |
 | Ops 管理 | `handler/admin/ops_*.go` (6+ 文件) | 运维面板 |
-| OAuth 管理 | `handler/admin/gemini_oauth_handler.go`, `openai_oauth_handler.go`, `antigravity_oauth_handler.go` | OAuth 配置 |
+| OAuth 管理 | `handler/admin/gemini_oauth_handler.go`, `handler/admin/openai_oauth_handler.go`, `handler/admin/antigravity_oauth_handler.go` | OAuth 配置 |
 | 促销管理 | `handler/admin/promo_handler.go` | 促销码 |
 | 兑换管理 | `handler/admin/redeem_handler.go` | 兑换码 |
 | 仪表盘 | `handler/admin/dashboard_handler.go` | 统计面板 |
@@ -174,4 +174,4 @@ Gateway 是计费、调度、限流、并发控制的交汇点，虽然 Provider
 | 迁移 | `repository/migrations_runner.go` | 数据库迁移 |
 | DI | `service/wire.go`, `handler/wire.go` | Wire 依赖注入 |
 | Setup | `setup/*.go` | 首次部署向导 |
-| 前端 | `web/`, `frontend/` | 嵌入式 Vue SPA |
+| 前端 | `web/` (internal 内嵌入), `frontend/` (项目根) | 嵌入式 Vue SPA |

@@ -4,6 +4,8 @@
 > **创建日期**: 2026-03-06  
 > **适用仓库**: sub2api (数据平面) + sub2api-plugin-market (控制平面)
 
+> **前置文档**: 本路线图基于 [04-PLUGIN-MARKET-REVIEW.md](./04-PLUGIN-MARKET-REVIEW.md) 的改进建议制定。
+
 ## 总体策略
 
 分 4 个 Phase 推进，每个 Phase 可独立交付价值：
@@ -14,6 +16,40 @@ Phase 2 (Provider)  → 4 个 Provider 插件化
 Phase 3 (Transform) → 转换和拦截器插件化
 Phase 4 (生态)      → 社区工具链和生态建设
 ```
+
+---
+
+## Phase 0: 安全加固（新增，最高优先级）
+
+**目标**: 修复当前插件市场中发现的安全漏洞和数据完整性问题（详见 [04-PLUGIN-MARKET-REVIEW.md §7](./04-PLUGIN-MARKET-REVIEW.md)）。
+
+**预计周期**: 1-2 周
+
+### 0.1 P0 安全修复
+
+| 任务 | 涉及文件 | 工作量 |
+|------|---------|--------|
+| POST /submissions 增加 rate limit | `api/v1/router.go`、新增 middleware | 小 |
+| GITHUB_WEBHOOK_SECRET 生产强制校验 | `api/v1/handler/github_webhook_handler.go` | 小 |
+| Submission 审核事务化 | `admin/service/submission_service.go`（用 `client.Tx()`） | 小 |
+
+### 0.2 P1 数据完整性修复
+
+| 任务 | 涉及文件 | 工作量 |
+|------|---------|--------|
+| 插件名正则校验 `^[a-z0-9][a-z0-9-]*$` | `ent/schema/plugin.go` 或 service 层 | 小 |
+| Official 插件审核角色限制 | `admin/router.go` 或 handler 层 | 小 |
+| SyncJob 并发锁（`plugin_id + target_ref`） | `service/sync_service.go` | 中 |
+| SyncJob 失败清理孤儿 WASM | `service/sync_service.go`（调整操作顺序或增加清理） | 小 |
+| 审核接口乐观锁（条件更新 `status=pending`） | `admin/service/submission_service.go` | 小 |
+
+### 0.3 验收标准
+
+- [ ] 无认证的 POST /submissions 有 IP 级 rate limit
+- [ ] 未配置 GITHUB_WEBHOOK_SECRET 时 webhook 请求被拒绝
+- [ ] 审核操作在单事务中完成
+- [ ] 插件名 `../hack` 被拦截
+- [ ] 并发 Sync 同一 `(plugin_id, ref)` 只有一个执行
 
 ---
 
@@ -31,9 +67,10 @@ Phase 4 (生态)      → 社区工具链和生态建设
 | PluginVersion 加 `capabilities` 字段 | `ent/schema/plugin_version.go` + 生成代码 | 小 |
 | 列表 API 支持 `?type=` 筛选 | `repository/`, `service/`, `handler/` | 小 |
 | 版本 API 支持 `?compatible_with=` 过滤 | `repository/`, `service/`, `handler/` | 中 |
-| 审核通过自动发布版本 | `admin/service/submission_service.go` | 小 |
+| 审核通过自动发布版本（含 Submission→Version 关联） | `admin/service/submission_service.go` | 中 |
+| 设计并实现 Sync→签名→发布流程 | `service/sync_service.go`、新增签名步骤 | 中 |
 | OpenAPI spec 同步更新 | `openapi/plugin-market-v1.yaml` | 小 |
-| Admin API 错误码统一 | `admin/handler/` 相关文件 | 中 |
+| Admin API 错误码统一 | 已完成，仅需同步更新 `ERROR-CODE-REGISTRY.md` 文档 | 小 |
 
 ### 1.2 主项目改动
 
@@ -57,21 +94,47 @@ Phase 4 (生态)      → 社区工具链和生态建设
 
 **预计周期**: 4-6 周
 
+### 2.0 前置条件：Host 流式编排能力
+
+> ⚠️ **关键依赖**: TinyGo WASM 在导出函数中无法安全使用 goroutine，且 Host API HTTP 仅支持完整 body（`io.ReadAll`）。因此 **Provider 插件无法在 WASM 内部实现 SSE 流式转发**。必须先实现 Host 流式编排。
+
+| 前置任务 | 涉及文件 | 工作量 |
+|---------|---------|--------|
+| Host API HTTP 增加流式 Fetch | `pluginruntime/host_api_http.go` | 高 |
+| ProviderPlugin 增加 `OnSSELine()` 回调 | `pluginapi/types.go` | 中 |
+| StreamWriter 增加 `Flush()` + 客户端断开检测 | `pluginapi/types.go`、`pluginruntime/writer.go` | 中 |
+| Host 侧 goroutine + channel 流式管道 | `pluginruntime/dispatch_runtime.go` | 高 |
+
 ### 2.1 ProviderPlugin 接口增强
 
 当前 `ProviderPlugin.Handle()` 签名较通用，Provider 插件需要额外的上下文：
 
 ```go
 type ProviderContext struct {
-    Account     AccountInfo    // 核心选好的账号
+    Account     AccountInfo    // 核心选好的账号（脱敏）
     Token       string         // 核心刷新好的 Token
     Platform    string         // 平台标识
-    BaseURL     string         // 上游 base URL
+    BaseURL     string         // 上游 base URL（单 URL）
+    BaseURLs    []string       // 上游 base URL 列表（Antigravity 多 URL）
     ProxyURL    string         // 代理地址（可选）
+    MappedModel string         // 核心映射后的模型名
+    OriginalModel string       // 原始请求的模型名（计费用）
+    PlatformSpecific map[string]any // project_id、chatgpt-account-id 等
+}
+
+type ProviderResultMetadata struct {
+    Usage       UsageInfo      // input/output/cache tokens
+    Model       string         // 实际计费模型
+    RequestID   string         // 上游 request-id
+    FirstTokenMs *int          // 首 token 延迟
+    Failover    bool           // 是否应触发核心账号切换
+    ImageCount  int            // 图片计费
+    ImageSize   string         // 图片尺寸
 }
 ```
 
 需要扩展 `GatewayRequest.Metadata` 或定义 `ProviderPlugin` 的增强版本。
+同时约定 `GatewayResponse.Metadata` 的回传格式，供核心做计费和监控。
 
 ### 2.2 插件抽取顺序
 
@@ -185,7 +248,8 @@ Provider 插件化后，需要保留内置实现作为降级：
 
 | 任务 | 说明 |
 |------|------|
-| SyncJob 真实实现 | GitHub Release → WASM → Storage → Version |
+| SyncJob 增强 | Manifest 解析、签名校验、GitHub API 限流保护、历史版本同步 |
+| 市场端依赖解析校验 | 审核时校验插件依赖是否可解析、无冲突 |
 | 插件配置模板 | `config_schema` 字段 + 配置表单生成 |
 | 插件评分评论 | 用户反馈机制 |
 | 插件搜索增强 | 全文搜索、标签搜索 |
@@ -225,6 +289,8 @@ Provider 插件化后，需要保留内置实现作为降级：
 | 插件间交互复杂 | 低 | 调试困难 | 可观测性 + 插件隔离 |
 | 社区参与度不足 | 中 | 生态冷启动 | 官方先发布核心插件做示范 |
 | 安全漏洞 | 低 | 插件越权 | 能力授权 + 签名验证 + 沙箱隔离 |
+| GitHub API 限流 | 中 | SyncJob 批量同步受限 | 重试 + 指数退避 + 缓存 |
+| 版本语义不明确 | 低 | compatible_with 比较规则歧义 | 明确 semver 范围匹配规则 |
 
 ---
 

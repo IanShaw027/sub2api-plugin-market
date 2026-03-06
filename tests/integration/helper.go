@@ -38,24 +38,15 @@ type TestContext struct {
 
 // SetupTestContext 设置测试上下文
 func SetupTestContext(t *testing.T) *TestContext {
-	// 使用 SQLite 内存数据库进行测试
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 
-	// 初始化 repository
 	pluginRepo := repository.NewPluginRepository(client)
 	trustKeyRepo := repository.NewTrustKeyRepository(client)
 
-	// 初始化 service
 	pluginService := service.NewPluginService(pluginRepo)
-	downloadService := service.NewDownloadService(
-		pluginRepo,
-		&fakeStorage{},
-		client,
-		&fakeVerifier{},
-	)
+	downloadService := service.NewDownloadService(pluginRepo, &fakeStorage{}, client, &fakeVerifier{})
 	trustKeyService := service.NewTrustKeyService(trustKeyRepo)
 
-	// 初始化 handler
 	pluginHandler := handler.NewPluginHandler(pluginService)
 	downloadHandler := handler.NewDownloadHandler(downloadService)
 	trustKeyHandler := handler.NewTrustKeyHandler(trustKeyService)
@@ -64,10 +55,7 @@ func SetupTestContext(t *testing.T) *TestContext {
 	submissionHandler := handler.NewSubmissionHandler(submissionService)
 	githubWebhookHandler := handler.NewGitHubWebhookHandler(syncService, "", 1, 1)
 
-	// 设置 Gin 为测试模式
 	gin.SetMode(gin.TestMode)
-
-	// 创建路由
 	router := gin.New()
 	v1.RegisterRoutes(router, pluginHandler, downloadHandler, trustKeyHandler, submissionHandler, githubWebhookHandler)
 
@@ -90,6 +78,18 @@ func (tc *TestContext) Cleanup() {
 // PerformRequest 执行 HTTP 请求
 func (tc *TestContext) PerformRequest(method, path string) *httptest.ResponseRecorder {
 	req, _ := http.NewRequest(method, path, nil)
+	w := httptest.NewRecorder()
+	tc.Router.ServeHTTP(w, req)
+	return w
+}
+
+// PerformRequestWithBody 执行带请求体的 HTTP 请求
+func (tc *TestContext) PerformRequestWithBody(method, path string, body io.Reader, headers map[string]string) *httptest.ResponseRecorder {
+	req, _ := http.NewRequest(method, path, body)
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	w := httptest.NewRecorder()
 	tc.Router.ServeHTTP(w, req)
 	return w

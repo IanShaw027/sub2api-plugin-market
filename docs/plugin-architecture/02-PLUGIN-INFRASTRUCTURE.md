@@ -170,7 +170,7 @@ type StreamWriter interface {
 | **Lockfile** | `pluginmarket/lockfile_store.go` | 持久化安装状态到本地文件 |
 | **依赖类型** | `pluginmarket/dependency.go` | Dependency、ResolvedDependency、DependencyGraph 类型 |
 | **依赖解析** | `pluginmarket/dependency_resolver.go` | 插件间依赖和冲突检测 |
-| **Manifest** | `pluginmarket/manifest.go` | Manifest 类型（re-export pluginsign） |
+| **Manifest** | `pluginmarket/manifest.go` | PluginManifest 类型（扩展 pluginsign.Manifest，增加 Dependencies 等） |
 | **审计事件** | `pluginmarket/audit_event.go` | 记录插件操作日志（内存/文件/Postgres） |
 | **提交服务** | `pluginmarket/submission_service.go` | 提交新插件/版本到市场 |
 
@@ -181,25 +181,29 @@ type StreamWriter interface {
 ```
 (未安装)
     │
-    ▼  install
- disabled (StateDisabled)
+    ▼  install (desired=Active, effective=PendingRestart)
+ pending_restart (StatePendingRestart)
     │
-    ├─→ enable  → active (StateActive, 运行中)
-    │                │
-    │                ├─→ disable → disabled
-    │                ├─→ upgrade → active (新版本)
-    │                └─→ 插件崩溃 → failed (StateFailed)
+    ▼  重启 / Reconcile
+ active (StateActive, 运行中)
     │
-    ├─→ 热重载 → pending_restart (StatePendingRestart)
+    ├─→ disable → disabled (StateDisabled)
     │                │
-    │                └─→ 重启完成 → active
+    │                └─→ enable → pending_restart → active
+    │
+    ├─→ upgrade → pending_restart → active (新版本)
+    │
+    ├─→ 插件崩溃 → failed (StateFailed)
+    │                │
+    │                └─→ 重试/修复 → pending_restart → active
     │
     └─→ uninstall → (未安装)
 
-任何 active 状态可 rollback → active (旧版本)
+任何 active 状态可 rollback → pending_restart → active (旧版本)
 ```
 
-> **注意**: 简化文档中使用 "installed/enabled"，实际代码状态名为 `StateDisabled`/`StateActive`/`StatePendingRestart`/`StateFailed`。
+> **关键机制**: 代码使用 `desired` (期望) 和 `effective` (实际) 双状态模型。`install` 时 desired=Active、effective=PendingRestart，`Reconcile()` 在重启后对齐两者。
+
 
 ---
 

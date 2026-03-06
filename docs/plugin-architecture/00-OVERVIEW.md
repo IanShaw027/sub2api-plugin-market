@@ -2,7 +2,7 @@
 
 > **文档状态**: Draft  
 > **创建日期**: 2026-03-06  
-> **适用范围**: sub2api (数据平面) + sub2api-plugin-market (控制平面)
+> **适用仓库**: sub2api (数据平面) + sub2api-plugin-market (控制平面)
 
 ## 1. 背景
 
@@ -41,8 +41,8 @@ Sub2API 是一个 AI API 网关，支持将 AI 订阅配额（Claude、OpenAI、
 
 | 文档 | 内容 |
 |------|------|
-| [01-CORE-MODULES.md](./01-CORE-MODULES.md) | 主项目核心模块完整清单（~70 个文件） |
-| [02-PLUGIN-INFRASTRUCTURE.md](./02-PLUGIN-INFRASTRUCTURE.md) | 插件基础设施模块清单（~25 个文件） |
+| [01-CORE-MODULES.md](./01-CORE-MODULES.md) | 主项目核心模块完整清单（~75 个模块） |
+| [02-PLUGIN-INFRASTRUCTURE.md](./02-PLUGIN-INFRASTRUCTURE.md) | 插件基础设施模块清单（~35 个模块） |
 | [03-PLUGGABLE-MODULES.md](./03-PLUGGABLE-MODULES.md) | 可插件化模块分析（12 个候选插件） |
 | [04-PLUGIN-MARKET-REVIEW.md](./04-PLUGIN-MARKET-REVIEW.md) | 插件市场设计评审与改进建议 |
 | [05-EXTRACTION-ROADMAP.md](./05-EXTRACTION-ROADMAP.md) | 插件化实施路线图 |
@@ -79,11 +79,11 @@ Sub2API 是一个 AI API 网关，支持将 AI 订阅配额（Claude、OpenAI、
 
 ## 6. 数量统计
 
-| 归属 | 文件数 | 一句话总结 |
+| 归属 | 模块数 | 一句话总结 |
 |------|--------|-----------|
-| 主项目核心 | ~70 | 管钱、管人、管锁、管调度 |
-| 插件基础设施 | ~25 | 运行时沙箱 + 生命周期管理 |
-| 可插件化模块 | 12 个候选 | 4 Provider + 3 Transform + 5 Interceptor |
+| 主项目核心 | ~75 | 管钱、管人、管锁、管调度 |
+| 插件基础设施 | ~35 | 运行时沙箱 + 生命周期管理 |
+| 可插件化模块 | 12 个候选 | 4 Provider + 4 Transform + 3 Interceptor + 1 内置可选 |
 
 ## 7. 相关文档
 

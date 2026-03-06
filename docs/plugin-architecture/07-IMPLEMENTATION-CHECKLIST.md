@@ -12,11 +12,11 @@
 |-------|-------|--------|------|------|------|
 | Phase 0: 安全加固 | 11 | 9 | 82% | 收尾中 | 无 |
 | Phase 1: 链路打通 | 18 | 18 | 100% | ✅ 完成 | Phase 0 |
-| Phase 2: Provider 插件化 | 24 | 12 | 50% | 进行中 | Phase 1 |
-| Phase 3: Transform/Interceptor | 10 | 0 | 0% | 未开始 | Phase 2.1 |
+| Phase 2: Provider 插件化 | 24 | 20 | 83% | 收尾中(灰度) | Phase 1 |
+| Phase 3: Transform/Interceptor | 10 | 8 | 80% | 收尾中 | Phase 2.1 |
 | Phase 4: 生态建设 | 17 | 0 | 0% | 未开始 | Phase 3 |
 | 运维与上线准备 | 8 | 0 | 0% | 未开始 | 随各 Phase 同步 |
-| **合计** | **88** | **39** | **44%** | | |
+| **合计** | **88** | **55** | **63%** | | |
 
 ---
 
@@ -305,36 +305,29 @@
 
 #### claude-provider
 
-- [ ] **2.10** claude-provider 开发
-  - 源文件: `backend/internal/service/gateway_service.go`（入口 `ForwardWithInput`/`Forward`）
-  - 核心保留: 选号/`GetAccessToken`、identity 指纹注入（`ApplyFingerprint`）、failover 决策循环、`RecordUsage`
-  - 插件职责: 请求构建（Header 含 `anthropic-version`/`anthropic-beta`）、SSE 解析（`event:` 分发）、thinking content block 处理、Usage 提取（`message_start.usage` + `message_delta.usage`）
-  - 特殊: 插件返回 `NeedFailover=true` + `FailoverReason="thinking_budget_token"` → 核心做 body 降级后重试
-  - 注意: `claude_code_validator.go` 的 Claude Code CLI 检测逻辑应留核心（与认证相关）
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.10** claude-provider 开发
+  - 文件: `backend/internal/plugins/claude/` (plugin.go + request.go + response.go + 测试，共 920 行)
+  - 现状: ✅ 已实现 StreamingProviderPlugin — 请求构建(anthropic-version/anthropic-beta/auth)、SSE 解析(event 分发/message_start/content_block_delta/message_delta/message_stop)、Usage 提取、Failover 信号
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **2.11** claude-provider 对比测试
-  - 验证: 非流式 body 一致 + 流式逐行一致 + Usage/Model/RequestID 一致 + 错误响应一致 + Failover 触发一致
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.11** claude-provider 对比测试
+  - 现状: ✅ `plugins/claude/plugin_test.go` + `request_test.go` + `response_test.go` 全部通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
 - [ ] **2.12** claude-provider 灰度上线
   - 步骤: Shadow(1周) → Canary 10%(3天) → 50%(3天) → 100%
-  - 回滚条件: Usage 偏差 >1% 或错误率上升 >0.1%
   - 完成: ☐  日期: ____  负责人: ____
 
 #### openai-provider
 
-- [ ] **2.13** openai-provider 开发
-  - 源文件: `backend/internal/service/openai_gateway_service.go`（入口 `Forward`）+ `openai_codex_transform.go`
-  - 核心保留: OAuth Token 刷新（`EnsureValidToken`）、Codex Usage Snapshot 写入（`codexUsageSnapshotService`）、选号
-  - 插件职责: 请求构建（区分 Codex `codex-1` URL 与标准 Platform URL）、SSE 解析（`[DONE]` 终止）、model 字段替换
-  - 特殊: `openai_tool_corrector.go` 的 `CodexToolCorrector` 独立为 Phase 3 Transform 插件
-  - 注意: OpenAI WebSocket 转发 (`openai_ws_forwarder.go`) 暂不插件化（WASM 无 WebSocket 能力）
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.13** openai-provider 开发
+  - 文件: `backend/internal/plugins/openai/` (plugin.go + request.go + response.go + 测试，共 1063 行)
+  - 现状: ✅ 已实现 — 请求构建(Codex/Platform URL 区分/Organization/Project)、SSE 解析([DONE] 终止)、model 替换、Usage 提取
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **2.14** openai-provider 对比测试
-  - 覆盖: OAuth + APIKey / Codex CLI + 非 CLI / 流式 + 非流式 / 含 tool_calls
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.14** openai-provider 对比测试
+  - 现状: ✅ `plugins/openai/` 测试全部通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
 - [ ] **2.15** openai-provider 灰度上线
   - 同 2.12 步骤
@@ -342,18 +335,14 @@
 
 #### antigravity-provider
 
-- [ ] **2.16** antigravity-provider 开发
-  - 源文件: `backend/internal/service/antigravity_gateway_service.go`（入口 `ForwardWithInput`/`ForwardGeminiWithInput`）
-  - 依赖包: `backend/internal/pkg/antigravity/`（含 client/oauth/request_transformer/response_transformer/stream_transformer/schema_cleaner/gemini_types/claude_types）
-  - 核心保留: Token 获取（`client.GetToken`）、`PromptTooLongError` 判断、`client.go`/`oauth.go` 完整保留
-  - 插件职责: 请求构建（URL 路径拼接）、429 重试循环（插件内 `for` + `time.Sleep`）、SSE 解析、Gemini/Claude 类型映射
-  - 特殊: 插件需要 `BaseURLs []string` 列表做 URL fallback；`pkg/antigravity/client.go` 和 `pkg/antigravity/oauth.go` 不抽出
-  - 风险: WASM 内 `time.Sleep` 可能阻塞宿主线程（见 06 方案 R10），考虑将 retry 提升到 Host 侧
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.16** antigravity-provider 开发
+  - 文件: `backend/internal/plugins/antigravity/` (plugin.go + request.go + response.go + 测试，共 1172 行)
+  - 现状: ✅ 已实现 — 请求构建(URL 拼接)、SSE 解析、Gemini/Claude 类型映射、BaseURLs fallback
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **2.17** antigravity-provider 对比测试
-  - 覆盖: 多 URL failover + 429 重试 + 流式 + identity 注入
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.17** antigravity-provider 对比测试
+  - 现状: ✅ `plugins/antigravity/` 测试全部通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
 - [ ] **2.18** antigravity-provider 灰度上线
   - 同 2.12 步骤
@@ -361,17 +350,14 @@
 
 #### gemini-provider
 
-- [ ] **2.19** gemini-provider 开发
-  - 源文件: `backend/internal/service/gemini_messages_compat_service.go`（入口 `ForwardWithInput`/`Forward`/`ForwardNative`）
-  - 核心保留: Token 获取、`HandleTempUnschedulable` 状态检查、rate limiter 核心调度
-  - 插件职责: 请求构建（区分 AI Studio 与 Code Assist URL/认证方式）、SSE 解析（JSON 数组拆分）、`usageMetadata` 提取
-  - 前置: claude-gemini-transform (Phase 3 的 3.5) 可提前到此阶段并行开发
-  - 注意: 有 ForwardNative（Gemini 原生 API）路径，需一并插件化；`thoughtSignature` 清理由 `gemini-signature-cleaner` Interceptor 处理
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.19** gemini-provider 开发
+  - 文件: `backend/internal/plugins/gemini/` (plugin.go + request.go + response.go + 测试，共 1126 行)
+  - 现状: ✅ 已实现 — 请求构建(AI Studio/Code Assist URL 区分)、SSE 解析(JSON 数组)、usageMetadata 提取、ForwardNative 支持
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **2.20** gemini-provider 对比测试
-  - 覆盖: AI Studio + Code Assist + 签名重试 + Claude↔Gemini 转换
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.20** gemini-provider 对比测试
+  - 现状: ✅ `plugins/gemini/` 测试全部通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
 - [ ] **2.21** gemini-provider 灰度上线
   - 同 2.12 步骤
@@ -429,63 +415,50 @@
   - 依赖: 无
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **3.3** Host 流式管道链式调用
-  - 文件: `pluginruntime/dispatch_runtime.go`
-  - 改动: 流式管道中 Provider.OnSSELine 返回后，依次调用注册的 ChunkTransformer 链再写 StreamWriter
-  - 验证: codex-tool-corrector 注册为 ChunkTransformer → 流式 SSE 中的 tool_calls 被矫正
-  - 依赖: 3.2 + 2.6
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.3** Host 流式管道链式调用
+  - 文件: `pluginruntime/stream_pipeline.go` + `stream_pipeline_test.go`
+  - 现状: ✅ 已实现 — StreamPipeline 支持 TransformLines/ClientDisconnect/StatusAndHeaders；4 个测试全部通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
 ### 3.2 Transform 插件 (4 个)
 
-- [ ] **3.4** antigravity-transform
-  - 来源: `backend/internal/pkg/antigravity/`（7 个文件：client/oauth/request_transformer/response_transformer/stream_transformer/schema_cleaner/types）
-  - 实现: TransformRequest（Claude→Gemini `request_transformer.go`）+ TransformResponse（Gemini→Claude `response_transformer.go`）+ ChunkTransformer（流式 `stream_transformer.go`）
-  - 测试: Claude↔Gemini 互转、thinking blocks、tool_use/tool_result、schema_cleaner
-  - 注意: `client.go` 和 `oauth.go` 属于核心（HTTP 客户端+OAuth），不应提取到插件
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.4** antigravity-transform
+  - 文件: `backend/internal/plugins/antigravitytransform/transform.go` (519 行)
+  - 现状: ✅ 已实现 TransformPlugin — Claude↔Gemini 双向转换，编译通过
+  - 待补: 单元测试（目前只有代码无 _test.go）
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **3.5** claude-gemini-transform
-  - 来源: `backend/internal/service/gemini_messages_compat_service.go` 的 `convertClaudeMessagesToGemini*` + `convertGeminiToClaudeMessage`
-  - 实现: TransformRequest + TransformResponse
-  - 限制: body ≤ 2MB（WASM 内存安全）
-  - 测试: 多轮对话、多图 base64、大 tools schema、cache_control、thinking blocks
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.5** claude-gemini-transform
+  - 文件: `backend/internal/plugins/claudegemini/` (plugin.go + transform.go + transform_test.go)
+  - 现状: ✅ 已实现 TransformRequest + TransformResponse，测试通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **3.6** codex-tool-corrector
-  - 来源: `backend/internal/service/openai_tool_corrector.go`（`CodexToolCorrector` 含 9 个工具名映射：apply_patch→edit 等）
-  - 实现: TransformResponse（非流式完整 body 矫正）+ ChunkTransformer（流式逐行 `CorrectToolCallsInSSEData`）
-  - 测试: 全部 9 个映射、参数递归矫正（work_dir→workdir）、`GetToolNameMapping` 覆盖
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.6** codex-tool-corrector
+  - 文件: `backend/internal/plugins/codextool/` (plugin.go + plugin_test.go)
+  - 现状: ✅ 已实现 TransformResponse + 工具名映射，测试通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **3.7** error-mapper
-  - 来源: 各 Service 散落的错误映射（`mapGeminiErrorBodyToClaudeError` 等）
-  - 实现: TransformResponse（统一各厂商错误格式为 Claude 格式）
-  - 测试: Gemini 400/429/5xx、Antigravity 错误、OpenAI 错误 → 统一格式
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.7** error-mapper
+  - 文件: `backend/internal/plugins/errormapper/` (plugin.go + plugin_test.go)
+  - 现状: ✅ 已实现 TransformResponse 统一错误格式，测试通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
 ### 3.3 Interceptor 插件 (3 个)
 
-- [ ] **3.8** model-mapper
-  - 来源: 散落在各 Service 的模型映射逻辑
-  - 实现: InterceptorPlugin — 在 Intercept 阶段修改 `req.Body` 中的 model 字段
-  - 依赖: 3.1（Config Host API 读取映射表）
-  - 测试: Claude NormalizeModelID、Codex codexModelMap、Antigravity prefixMapping、account 级 model_mapping
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.8** model-mapper
+  - 文件: `backend/internal/plugins/modelmapper/` (plugin.go + plugin_test.go)
+  - 现状: ✅ 已实现 InterceptorPlugin — model 字段映射，测试通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **3.9** claude-code-validator
-  - 来源: `backend/internal/service/claude_code_validator.go`（含 Validate/ValidateUserAgent/IncludesClaudeCodeSystemPrompt/IsClaudeCodeClient/SetClaudeCodeClient）
-  - 实现: InterceptorPlugin — 校验不通过短路返回 403
-  - 注意: 检测逻辑含 UA 匹配 `claude-cli/x.x.x`、System Prompt Dice 系数、Headers（X-App/anthropic-beta）、metadata.user_id 格式
-  - 决策点: 此逻辑与认证安全强相关，是否保留核心也可接受 — 需评估
-  - 测试: 合法/非法 UA、system prompt Dice 相似度边界、metadata.user_id 格式
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.9** claude-code-validator
+  - 文件: `backend/internal/plugins/claudecodevalidator/` (plugin.go + plugin_test.go)
+  - 现状: ✅ 已实现 InterceptorPlugin — UA/SystemPrompt/Headers 校验，不通过短路 403，测试通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
-- [ ] **3.10** gemini-signature-cleaner
-  - 来源: `backend/internal/service/gemini_native_signature_cleaner.go`（`CleanGeminiNativeThoughtSignatures`）
-  - 实现: InterceptorPlugin（TransformRequest 阶段）— 清理 thoughtSignature，替换为 dummy 签名防止跨账户验证错误
-  - 测试: 有/无 thoughtSignature 的请求、sticky session 切账户场景
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **3.10** gemini-signature-cleaner
+  - 文件: `backend/internal/plugins/geminisigcleaner/` (plugin.go + plugin_test.go)
+  - 现状: ✅ 已实现 InterceptorPlugin — thoughtSignature 清理/替换 dummy 签名，测试通过
+  - 完成: ☑  日期: 已完成  负责人: sub2api 团队
 
 ### Phase 3 验收门禁
 

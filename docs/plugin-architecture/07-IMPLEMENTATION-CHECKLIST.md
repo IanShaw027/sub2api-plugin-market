@@ -12,11 +12,11 @@
 |-------|-------|--------|------|------|------|
 | Phase 0: 安全加固 | 11 | 9 | 82% | 收尾中 | 无 |
 | Phase 1: 链路打通 | 18 | 18 | 100% | ✅ 完成 | Phase 0 |
-| Phase 2: Provider 插件化 | 24 | 0 | 0% | 未开始 | Phase 1 |
+| Phase 2: Provider 插件化 | 24 | 12 | 50% | 进行中 | Phase 1 |
 | Phase 3: Transform/Interceptor | 10 | 0 | 0% | 未开始 | Phase 2.1 |
 | Phase 4: 生态建设 | 17 | 0 | 0% | 未开始 | Phase 3 |
 | 运维与上线准备 | 8 | 0 | 0% | 未开始 | 随各 Phase 同步 |
-| **合计** | **88** | **27** | **31%** | | |
+| **合计** | **88** | **39** | **44%** | | |
 
 ---
 
@@ -239,19 +239,15 @@
 
 ### 2.1 Host 流式编排 (前置基础设施)
 
-- [ ] **2.1** StreamWriter 扩展
-  - 文件: `pluginapi/types.go` + `pluginruntime/writer.go`
-  - 改动: 接口新增 `Flush() error`、`SetStatus(code int)`、`Done() <-chan struct{}`；writer.go 实现对接 Gin 的 `http.Flusher` 和 `context.Done()`
-  - 验证: 单元测试 — Flush 后客户端立即收到数据；Done channel 在客户端断开时关闭
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.1** StreamWriter 扩展
+  - 文件: `pluginapi/types.go` + `pluginruntime/writer.go` + `pluginruntime/gateway_adapter.go`
+  - 改动: `Done() <-chan struct{}` 新增（Flush/SetStatus/ClientGone 已存在）；GinStreamWriter.Done() 返回 request context.Done()；MemoryStreamWriter.Done() 返回内部 channel
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **2.2** ProviderPlugin 接口扩展
+- [x] **2.2** ProviderPlugin 接口扩展
   - 文件: `pluginapi/types.go`
-  - 改动: 新增 `StreamDelegate{URL, Method string; Headers map[string][]string}`；ProviderPlugin 新增 `PrepareStream(ctx, req) (*StreamDelegate, error)`、`OnSSELine(line []byte) ([]byte, error)`、`OnStreamEnd() (*ProviderResultMetadata, error)`
-  - 验证: Mock Provider 实现新接口 → 编译通过
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: 新增 `StreamDelegate` 结构体 + `StreamProviderPlugin` 接口（PrepareStream/OnSSELine/OnStreamEnd），与已有 StreamingProviderPlugin 共存
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 - [ ] **2.3** ProviderContext 定义（详见 06 方案 §2.1.3）
   - 文件: `pluginapi/types.go`
@@ -273,60 +269,35 @@
   - 依赖: 无
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **2.4** ProviderResultMetadata 定义（详见 06 方案 §2.1.4）
-  - 文件: `pluginapi/types.go`
-  - 改动: 定义 ProviderResultMetadata 结构体，完整字段:
-    - `InputTokens int` — 输入 token 数
-    - `OutputTokens int` — 输出 token 数
-    - `TotalTokens int` — 总 token 数
-    - `ActualModel string` — 上游实际返回模型名
-    - `StopReason string` — 停止原因
-    - `NeedFailover bool` — 是否需要 failover
-    - `FailoverReason string` — failover 原因
-    - `UpstreamStatusCode int` — 上游 HTTP 状态码
-    - `CacheCreationTokens int` — Claude cache 写入 token（可选）
-    - `CacheReadTokens int` — Claude cache 读取 token（可选）
-  - 约定: 通过 `GatewayResponse.Metadata["provider_result"]` 回传
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.4** ProviderResultMetadata 定义（详见 06 方案 §2.1.4）
+  - 文件: `pluginapi/types.go` + `pluginapi/provider_context.go`
+  - 改动: ProviderResultMetadata 已存在（含 UsageInfo 子结构/FirstTokenMs/Failover/ImageCount）；新增 `GetProviderResult`/`SetProviderResult` 辅助函数
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **2.5** Host 流式 HTTP
-  - 文件: `pluginruntime/host_api_http.go`
-  - 改动: 新增 `DoStream(req HTTPRequest, onLine func([]byte) error) error`，内部 goroutine + bufio.Scanner 逐行读取 SSE body
-  - 验证: 对接 mock SSE 端点 → onLine 回调逐行收到数据 → 流结束返回 nil
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **2.5** Host 流式 HTTP
+  - 文件: `pluginruntime/host_api_http.go` + `host_api_http_test.go`
+  - 改动: FetchStreaming 增强 — context 绑定、HostHTTPError 错误类型、ctx.Done() 检查、bufio.Scanner 1MB 行限制；新增 3 个测试（HTTP 错误/context 取消/大行）
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **2.6** DispatchRuntime Provider 流式调度
+- [x] **2.6** DispatchRuntime Provider 流式调度
+  - 文件: `pluginruntime/dispatch_runtime.go` + `dispatch_stream_test.go`
+  - 改动: 新增 `dispatchStreamProvider` 方法 — PrepareStream→Host FetchStreaming→OnSSELine 回调→WriteChunk→OnStreamEnd 获取 Metadata；Provider 阶段类型断言 StreamProviderPlugin 走流式路径
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
+
+- [x] **2.7** keepalive + interval timeout
   - 文件: `pluginruntime/dispatch_runtime.go`
-  - 改动: Provider 阶段判断 `req.Stream`：true 时 ①调 PrepareStream 获取 StreamDelegate ②Host DoStream 发起流式 HTTP ③每行调 OnSSELine 获取转换后的行 ④WriteChunk + Flush ⑤流结束调 OnStreamEnd 获取 Metadata；false 时走原有 Handle 路径
-  - 验证: Mock SSE Provider → 客户端逐行收到数据 → Usage 正确回传
-  - 依赖: 2.1 + 2.2 + 2.5
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: 流式管道 select 循环监听 4 事件：upstream line/keepalive ticker(30s)/idle timeout(5min)/ctx.Done()；`DispatchRuntimeConfig` 新增 StreamKeepaliveInterval + StreamIdleTimeout
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **2.7** keepalive + interval timeout
-  - 文件: `pluginruntime/dispatch_runtime.go`
-  - 改动: 流式管道中增加 keepalive Ticker（如 30s 发 `: keepalive\n\n`）和上游数据间隔 Ticker（如 5min 无数据则超时断开）
-  - 验证: 上游暂停 35s → 客户端收到 keepalive 注释；上游暂停 6min → 连接超时关闭
-  - 依赖: 2.6
-  - 完成: ☐  日期: ____  负责人: ____
-
-- [ ] **2.8** 核心注入 ProviderContext
+- [x] **2.8** 核心注入 ProviderContext
   - 文件: `backend/internal/handler/gateway_handler.go`
-  - 源码现状: handler 当前在 `SelectAccountWithLoadAwareness` 后直接调用各 ForwardWithInput，Account/Token/Model 分散在不同位置
-  - 改动: 在 platform 分支之前统一构建 ProviderContext → 放入 `req.Metadata["provider_context"]`。需从当前分散的 `account`, `token`, `mappedModel` 变量收集
-  - 注意: 当前 RecordUsage 在 `go func()` 中异步执行，ProviderContext 需包含 `InputTokens`/`OutputTokens` 以支持计费
-  - 验证: 插件收到的 ProviderContext 字段完整正确
-  - 依赖: 2.3
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: Gemini 路径和 Claude 路径 TryDispatch 前调用 `buildProviderContext(account, model, platform, stream)` 构建完整 ProviderContext → metadata["provider_context"]；新增 `accountTokenAndType` 按账号类型提取 token
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **2.9** 核心消费 ProviderResultMetadata
+- [x] **2.9** 核心消费 ProviderResultMetadata
   - 文件: `backend/internal/handler/gateway_handler.go`
-  - 源码现状: RecordUsage 使用 `ForwardResult` 中的 Usage 信息，在 handler 的 `go func()` 异步记录
-  - 改动: Provider 返回后从 `resp.Metadata["provider_result"]` 反序列化 → 替代当前 ForwardResult 的 Usage 字段 → 调用 RecordUsage
-  - 验证: 插件回传 Usage{input:100, output:50} → 计费系统扣费 150 token
-  - 依赖: 2.4 + 2.6
-  - 完成: ☐  日期: ____  负责人: ____
+  - 改动: pluginResult.Handled 后调用 `extractForwardResultFromPlugin` 从 ProviderResultMetadata 提取 ForwardResult 用于 RecordUsage 计费
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### 2.2 Provider 插件开发 + 灰度上线
 
@@ -408,29 +379,23 @@
 
 ### 2.3 上线基础设施
 
-- [ ] **2.22** 对比测试框架
+- [x] **2.22** 对比测试框架
   - 仓库: `sub2api`
-  - 文件: `backend/internal/pluginruntime/consistency_test.go`（新文件）
-  - 改动: 实现 `ConsistencyTest` 结构体：同一请求同时走内置和插件，自动对比 StatusCode/Body/Usage/Model/Failover。支持流式逐行对比
-  - 验证: 人为制造 Usage 偏差 → 框架报告差异
-  - 依赖: 2.6
-  - 完成: ☐  日期: ____  负责人: ____
+  - 文件: 新增 `backend/internal/pluginruntime/consistency_test_framework.go` + `consistency_test_framework_test.go`
+  - 改动: `ConsistencyTester` — 并发执行内置/插件双路转发，对比 StatusCode/Body(JSON deep equal 忽略动态字段)/Usage(容差比例)/Model；`CompareStream` 流式对比；`jsonDeepEqual` 递归比较。11 个测试全部通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **2.23** Shadow/Canary 流量切分机制
+- [x] **2.23** Shadow/Canary 流量切分机制
   - 仓库: `sub2api`
-  - 文件: `backend/internal/handler/gateway_handler.go` + `backend/internal/pluginruntime/traffic_split.go`（新文件）
-  - 改动: 实现三种模式：①Shadow（双写，仅内置响应）②Canary（按百分比路由）③Full（100% 插件）。通过环境变量或配置文件控制每个 Provider 的模式和百分比
-  - 验证: 设 claude-provider=canary:10% → 约 10% 请求走插件
-  - 依赖: 1.14
-  - 完成: ☐  日期: ____  负责人: ____
+  - 文件: 新增 `backend/internal/pluginruntime/traffic_split.go` + `traffic_split_test.go`
+  - 改动: `TrafficSplitter` — shadow/canary/full/disabled 四模式 + `PLUGIN_TRAFFIC_{NAME}=mode:pct` 环境变量加载 + `ShouldUsePlugin`/`ShouldReturnPluginResult`/`IsShadow` + sync.RWMutex 并发安全。10 个测试全部通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
-- [ ] **2.24** WASM body 大小限制
+- [x] **2.24** WASM body 大小限制
   - 仓库: `sub2api`
-  - 文件: `backend/internal/pluginruntime/dispatch_runtime.go`
-  - 改动: 在将 request body 传入 WASM 前检查大小。Provider: 超过 limit 则 fallback 内置；Transform: 超过 limit 则跳过该 Transform 并记日志。默认 2MB，可配置
-  - 验证: 发送 3MB body + Transform 插件 → Transform 被跳过，请求正常处理
-  - 依赖: 2.6
-  - 完成: ☐  日期: ____  负责人: ____
+  - 文件: `backend/internal/pluginruntime/dispatch_runtime.go` + `dispatch_runtime_test.go`
+  - 改动: `MaxRequestBodyBytes` 配置(默认 2MB)；`checkBodySize` 检查；Interceptor/Transform 超限→跳过+日志；Provider 超限→返回 ErrRuntimeNoProvider fallback。6 个测试全部通过
+  - 完成: ☑  日期: 2026-03-06  负责人: AI
 
 ### Phase 2 验收门禁
 

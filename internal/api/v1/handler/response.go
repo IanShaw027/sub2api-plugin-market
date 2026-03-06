@@ -40,11 +40,12 @@ func ErrorWithStatus(c *gin.Context, httpStatus int, code int, message string) {
 
 // 错误码定义
 const (
-	ErrCodeInvalidParam   = 1001
-	ErrCodeNotFound       = 1002
-	ErrCodeInternalError  = 1003
-	ErrCodeDatabaseError  = 1004
-	ErrCodeStorageError   = 1005
+	ErrCodeInvalidParam  = 1001
+	ErrCodeNotFound      = 1002
+	ErrCodeInternalError = 1003
+	ErrCodeDatabaseError = 1004
+	ErrCodeStorageError  = 1005
+	ErrCodeForbidden     = 1006
 )
 
 // httpStatusByCode 根据业务错误码映射 HTTP 状态码
@@ -54,6 +55,8 @@ func httpStatusByCode(code int) int {
 		return http.StatusBadRequest
 	case ErrCodeNotFound:
 		return http.StatusNotFound
+	case ErrCodeForbidden:
+		return http.StatusForbidden
 	case ErrCodeInternalError, ErrCodeDatabaseError, ErrCodeStorageError:
 		return http.StatusInternalServerError
 	default:

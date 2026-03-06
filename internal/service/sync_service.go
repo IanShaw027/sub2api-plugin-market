@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
@@ -23,6 +24,8 @@ import (
 )
 
 const autoSyncDedupWindow = 10 * time.Minute
+
+var syncLocks sync.Map // key: "plugin_id:target_ref", value: *sync.Mutex
 
 // SyncService 同步任务服务（MVP）
 type SyncService struct {
@@ -331,6 +334,24 @@ func extractOwnerRepo(githubRepoURL string) string {
 	return strings.TrimPrefix(normalized, "github.com/")
 }
 
+func (s *SyncService) acquireSyncLock(pluginID, targetRef string) (unlock func(), err error) {
+	key := pluginID + ":" + targetRef
+	mu := &sync.Mutex{}
+	actual, loaded := syncLocks.LoadOrStore(key, mu)
+	actualMu := actual.(*sync.Mutex)
+
+	if !actualMu.TryLock() {
+		return nil, fmt.Errorf("concurrent sync in progress for plugin %s ref %s", pluginID, targetRef)
+	}
+
+	return func() {
+		actualMu.Unlock()
+		if !loaded {
+			syncLocks.Delete(key)
+		}
+	}, nil
+}
+
 func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, targetRef string) error {
 	pluginRecord, err := s.client.Plugin.Get(ctx, pluginID)
 	if err != nil {
@@ -358,6 +379,13 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 		targetRef = tag
 	}
 
+	// S-06: Acquire process-level sync lock for this plugin+ref
+	unlock, err := s.acquireSyncLock(pluginID.String(), targetRef)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	// 1. Fetch release info
 	release, err := s.fetchReleaseByTag(ctx, ownerRepo, targetRef)
 	if err != nil {
@@ -376,24 +404,7 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 		return fmt.Errorf("no .wasm asset found in release %s", targetRef)
 	}
 
-	// 3. Download the .wasm asset
-	wasmBytes, err := s.downloadAsset(ctx, wasmAsset.BrowserDownloadURL)
-	if err != nil {
-		return fmt.Errorf("download wasm asset: %w", err)
-	}
-
-	// 4. Compute SHA256 hash
-	hash := sha256.Sum256(wasmBytes)
-	wasmHash := "sha256-" + hex.EncodeToString(hash[:])
-	fileSize := len(wasmBytes)
-
-	// 5. Upload to storage
-	storageKey := fmt.Sprintf("plugins/%s/%s/plugin.wasm", pluginRecord.Name, targetRef)
-	if _, err := s.storage.Upload(ctx, storageKey, bytes.NewReader(wasmBytes)); err != nil {
-		return fmt.Errorf("upload wasm to storage: %w", err)
-	}
-
-	// 6. Check version doesn't already exist
+	// 3. Check version doesn't already exist (S-07: moved before download/upload)
 	ok, err := s.versionAvailable(ctx, pluginID, targetRef)
 	if err != nil {
 		return err
@@ -402,7 +413,24 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 		return fmt.Errorf("plugin version %s already exists", targetRef)
 	}
 
-	// 7. Create PluginVersion with real data
+	// 4. Download the .wasm asset
+	wasmBytes, err := s.downloadAsset(ctx, wasmAsset.BrowserDownloadURL)
+	if err != nil {
+		return fmt.Errorf("download wasm asset: %w", err)
+	}
+
+	// 5. Compute SHA256 hash
+	hash := sha256.Sum256(wasmBytes)
+	wasmHash := "sha256-" + hex.EncodeToString(hash[:])
+	fileSize := len(wasmBytes)
+
+	// 6. Upload to storage
+	storageKey := fmt.Sprintf("plugins/%s/%s/plugin.wasm", pluginRecord.Name, targetRef)
+	if _, err := s.storage.Upload(ctx, storageKey, bytes.NewReader(wasmBytes)); err != nil {
+		return fmt.Errorf("upload wasm to storage: %w", err)
+	}
+
+	// 7. Create PluginVersion — cleanup orphan WASM on failure (S-07)
 	_, err = s.client.PluginVersion.Create().
 		SetPluginID(pluginID).
 		SetVersion(targetRef).
@@ -414,7 +442,14 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 		SetMinAPIVersion("1.0.0").
 		SetPluginAPIVersion("1.0.0").
 		Save(ctx)
-	return err
+	if err != nil {
+		if delErr := s.storage.Delete(ctx, storageKey); delErr != nil {
+			slog.Error("failed to cleanup orphan wasm", "key", storageKey, "error", delErr)
+		}
+		return fmt.Errorf("create plugin version: %w", err)
+	}
+
+	return nil
 }
 
 func (s *SyncService) getHTTPClient() *http.Client {

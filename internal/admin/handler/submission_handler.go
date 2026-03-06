@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -109,11 +110,17 @@ func (h *SubmissionHandler) Review(c *gin.Context) {
 		return
 	}
 
-	// 获取当前管理员
+	// 获取当前管理员信息
 	username, _ := c.Get("admin_username")
+	roleVal, _ := c.Get("admin_role")
+	reviewerRole := fmt.Sprintf("%s", roleVal)
 
-	err := h.service.ReviewSubmission(c.Request.Context(), id, req.Action, req.ReviewerNotes, username.(string))
+	err := h.service.ReviewSubmission(c.Request.Context(), id, req.Action, req.ReviewerNotes, username.(string), reviewerRole)
 	if err != nil {
+		if errors.Is(err, service.ErrForbiddenReview) {
+			Error(c, ErrCodeForbidden, err.Error())
+			return
+		}
 		Error(c, ErrCodeInternalError, "审核失败")
 		return
 	}

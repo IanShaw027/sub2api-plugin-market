@@ -10,6 +10,8 @@ Sub2API 是一个 AI API 网关，支持将 AI 订阅配额（Claude、OpenAI、
 
 本文档系列分析了哪些模块应保留在核心、哪些应插件化，以及插件市场设计的评审和改进建议。
 
+> **关键发现**: Provider 插件化受 WASM 技术限制（TinyGo 无法在导出函数中使用 goroutine、Host API HTTP 不支持流式响应），需要「Host 负责流式编排」的架构支持。Transform / Interceptor 类插件可直接以 WASM 实现。此外，插件市场存在安全漏洞（提交无认证、Webhook 签名可跳过等），需优先修复。详见各分文档。
+
 ## 2. 核心设计原则
 
 ```
@@ -43,9 +45,10 @@ Sub2API 是一个 AI API 网关，支持将 AI 订阅配额（Claude、OpenAI、
 |------|------|
 | [01-CORE-MODULES.md](./01-CORE-MODULES.md) | 主项目核心模块完整清单（~75 个模块） |
 | [02-PLUGIN-INFRASTRUCTURE.md](./02-PLUGIN-INFRASTRUCTURE.md) | 插件基础设施模块清单（~35 个模块） |
-| [03-PLUGGABLE-MODULES.md](./03-PLUGGABLE-MODULES.md) | 可插件化模块分析（12 个候选插件） |
-| [04-PLUGIN-MARKET-REVIEW.md](./04-PLUGIN-MARKET-REVIEW.md) | 插件市场设计评审与改进建议 |
-| [05-EXTRACTION-ROADMAP.md](./05-EXTRACTION-ROADMAP.md) | 插件化实施路线图 |
+| [03-PLUGGABLE-MODULES.md](./03-PLUGGABLE-MODULES.md) | 可插件化模块分析（12 个候选插件 + WASM 可行性评级） |
+| [04-PLUGIN-MARKET-REVIEW.md](./04-PLUGIN-MARKET-REVIEW.md) | 插件市场设计评审（含安全审查 §7） |
+| [05-EXTRACTION-ROADMAP.md](./05-EXTRACTION-ROADMAP.md) | 插件化实施路线图（Phase 0-4） |
+| [06-COMPLETE-IMPLEMENTATION-PLAN.md](./06-COMPLETE-IMPLEMENTATION-PLAN.md) | **完整实施方案（可执行蓝图）** |
 
 ## 5. 请求链路中的分工
 

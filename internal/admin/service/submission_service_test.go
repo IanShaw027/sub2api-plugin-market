@@ -123,7 +123,7 @@ func TestAdminSubmissionService_ReviewSubmission_Approve(t *testing.T) {
 	sub, _ = sub.Update().SetSourceType(submission.SourceTypeGithub).SetGithubRepoURL("https://github.com/org/repo").Save(ctx)
 
 	svc := NewSubmissionService(client)
-	err := svc.ReviewSubmission(ctx, sub.ID.String(), "approve", "looks good", "admin")
+	err := svc.ReviewSubmission(ctx, sub.ID.String(), "approve", "looks good", "admin", "admin")
 	require.NoError(t, err)
 
 	updated, err := client.Submission.Get(ctx, sub.ID)
@@ -147,7 +147,7 @@ func TestAdminSubmissionService_ReviewSubmission_Reject(t *testing.T) {
 	sub := createTestSubmission(t, client, p.ID)
 
 	svc := NewSubmissionService(client)
-	err := svc.ReviewSubmission(ctx, sub.ID.String(), "reject", "needs more info", "admin")
+	err := svc.ReviewSubmission(ctx, sub.ID.String(), "reject", "needs more info", "admin", "admin")
 	require.NoError(t, err)
 
 	updated, err := client.Submission.Get(ctx, sub.ID)
@@ -155,6 +155,102 @@ func TestAdminSubmissionService_ReviewSubmission_Reject(t *testing.T) {
 	assert.Equal(t, submission.StatusRejected, updated.Status)
 	assert.Equal(t, "admin", updated.ReviewedBy)
 	assert.Equal(t, "needs more info", updated.ReviewerNotes)
+}
+
+func TestAdminSubmissionService_ReviewSubmission_AlreadyApproved(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:admin_sub_already_approved?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	ctx := context.Background()
+
+	p := createTestPlugin(t, client, "already-approved-plugin")
+	sub := createTestSubmission(t, client, p.ID)
+
+	svc := NewSubmissionService(client)
+
+	err := svc.ReviewSubmission(ctx, sub.ID.String(), "approve", "first review", "admin1", "admin")
+	require.NoError(t, err)
+
+	updated, err := client.Submission.Get(ctx, sub.ID)
+	require.NoError(t, err)
+	assert.Equal(t, submission.StatusApproved, updated.Status)
+
+	err = svc.ReviewSubmission(ctx, sub.ID.String(), "approve", "second review", "admin2", "admin")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already been reviewed")
+
+	err = svc.ReviewSubmission(ctx, sub.ID.String(), "reject", "late reject", "admin3", "admin")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already been reviewed")
+}
+
+func TestAdminSubmissionService_ReviewSubmission_AlreadyRejected(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:admin_sub_already_rejected?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	ctx := context.Background()
+
+	p := createTestPlugin(t, client, "already-rejected-plugin")
+	sub := createTestSubmission(t, client, p.ID)
+
+	svc := NewSubmissionService(client)
+
+	err := svc.ReviewSubmission(ctx, sub.ID.String(), "reject", "not good enough", "admin1", "admin")
+	require.NoError(t, err)
+
+	err = svc.ReviewSubmission(ctx, sub.ID.String(), "approve", "actually approve", "admin2", "admin")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already been reviewed")
+}
+
+func createTestOfficialPlugin(t *testing.T, client *ent.Client, name string) *ent.Plugin {
+	ctx := context.Background()
+	p, err := client.Plugin.Create().
+		SetName(name).
+		SetDisplayName("Official " + name).
+		SetDescription("official plugin").
+		SetAuthor("official-team").
+		SetCategory(plugin.CategoryOther).
+		SetSourceType(plugin.SourceTypeUpload).
+		SetStatus(plugin.StatusActive).
+		SetIsOfficial(true).
+		Save(ctx)
+	require.NoError(t, err)
+	return p
+}
+
+func TestAdminSubmissionService_ReviewSubmission_OfficialPluginByReviewer(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:admin_sub_official_reviewer?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	ctx := context.Background()
+
+	p := createTestOfficialPlugin(t, client, "official-plugin")
+	sub := createTestSubmission(t, client, p.ID)
+
+	svc := NewSubmissionService(client)
+	err := svc.ReviewSubmission(ctx, sub.ID.String(), "approve", "lgtm", "reviewer-user", "reviewer")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrForbiddenReview)
+
+	updated, err := client.Submission.Get(ctx, sub.ID)
+	require.NoError(t, err)
+	assert.Equal(t, submission.StatusPending, updated.Status)
+}
+
+func TestAdminSubmissionService_ReviewSubmission_OfficialPluginByAdmin(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:admin_sub_official_admin?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	ctx := context.Background()
+
+	p := createTestOfficialPlugin(t, client, "official-plugin-admin")
+	sub := createTestSubmission(t, client, p.ID)
+
+	svc := NewSubmissionService(client)
+	err := svc.ReviewSubmission(ctx, sub.ID.String(), "approve", "approved by admin", "admin-user", "admin")
+	require.NoError(t, err)
+
+	updated, err := client.Submission.Get(ctx, sub.ID)
+	require.NoError(t, err)
+	assert.Equal(t, submission.StatusApproved, updated.Status)
+	assert.Equal(t, "admin-user", updated.ReviewedBy)
 }
 
 func TestAdminSubmissionService_GetStats(t *testing.T) {

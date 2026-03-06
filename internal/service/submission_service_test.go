@@ -96,6 +96,73 @@ func TestSubmissionService_CreateSubmission_GithubWithoutURL(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidSubmissionRequest)
 }
 
+func TestSubmissionService_CreateSubmission_InvalidPluginName_PathTraversal(t *testing.T) {
+	svc, client := setupSubmissionTest(t)
+	defer client.Close()
+	ctx := context.Background()
+
+	req := validCreateRequest()
+	req.PluginName = "../hack"
+
+	_, err := svc.CreateSubmission(ctx, req)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidSubmissionRequest)
+}
+
+func TestSubmissionService_CreateSubmission_InvalidPluginName_Slash(t *testing.T) {
+	svc, client := setupSubmissionTest(t)
+	defer client.Close()
+	ctx := context.Background()
+
+	req := validCreateRequest()
+	req.PluginName = "plugin/../../etc"
+
+	_, err := svc.CreateSubmission(ctx, req)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidSubmissionRequest)
+}
+
+func TestSubmissionService_CreateSubmission_InvalidPluginName_LeadingHyphen(t *testing.T) {
+	svc, client := setupSubmissionTest(t)
+	defer client.Close()
+	ctx := context.Background()
+
+	req := validCreateRequest()
+	req.PluginName = "-invalid"
+
+	_, err := svc.CreateSubmission(ctx, req)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidSubmissionRequest)
+}
+
+func TestSubmissionService_CreateSubmission_InvalidPluginName_TooShort(t *testing.T) {
+	svc, client := setupSubmissionTest(t)
+	defer client.Close()
+	ctx := context.Background()
+
+	req := validCreateRequest()
+	req.PluginName = "a"
+
+	_, err := svc.CreateSubmission(ctx, req)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidSubmissionRequest)
+}
+
+func TestSubmissionService_CreateSubmission_ValidPluginName_MinLength(t *testing.T) {
+	svc, client := setupSubmissionTest(t)
+	defer client.Close()
+	ctx := context.Background()
+
+	req := validCreateRequest()
+	req.PluginName = "ab"
+
+	resp, err := svc.CreateSubmission(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.NotEmpty(t, resp.SubmissionID)
+	assert.Equal(t, "pending", resp.Status)
+}
+
 func TestSubmissionService_CreateSubmission_ExistingPlugin(t *testing.T) {
 	svc, client := setupSubmissionTest(t)
 	defer client.Close()

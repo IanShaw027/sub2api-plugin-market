@@ -163,23 +163,27 @@ type ProviderResultMetadata struct {
    - 剥离账号选择（留在核心）
    - 剥离 Token 获取（留在核心）
 
-3. 实现 ProviderPlugin 接口
-   - Handle(): 接收 GatewayRequest + ProviderContext
-   - 构建 Anthropic 请求
-   - 通过 Host API HTTP 转发
-   - 解析 SSE / JSON 响应
-   - 通过 StreamWriter 写回
+3. 确认切割线
+   - 核心侧保留: Token 获取刷新、rateLimitService、failover 账号切换、Usage 计费写入
+   - 插件侧负责: 请求构建（URL + Header + Body）、非流式转发与解析
+   - 流式侧由 Host 编排: 插件提供 OnSSELine() 回调、Usage/Model 通过 ProviderResultMetadata 回传
 
-4. 测试
+4. 实现 ProviderPlugin 接口
+   - Handle(): 接收 GatewayRequest + ProviderContext → 非流式请求
+   - HandleStreaming() 或 OnSSELine(): 流式场景的逐行转换
+   - 通过 GatewayResponse.Metadata 回传 ProviderResultMetadata
+
+5. 测试
    - 单元测试（mock Host API）
    - 集成测试（通过 DispatchRuntime）
    - 对比测试（插件 vs 内置行为一致性）
+   - 计费一致性测试（Usage、Model、ImageCount 回传正确）
 
-5. 编译为 WASM
+6. 编译为 WASM
    - TinyGo / Go WASM 编译
    - Ed25519 签名
 
-6. 发布到插件市场
+7. 发布到插件市场
    - 创建 Submission
    - 审核通过
    - sub2api 安装并启用
@@ -199,10 +203,13 @@ Provider 插件化后，需要保留内置实现作为降级：
 
 ### 2.5 验收标准
 
+- [ ] Host 流式编排能力就绪（goroutine + channel + OnSSELine 回调）
 - [ ] 4 个 Provider 均可作为插件安装运行
 - [ ] 无插件时自动降级到内置实现
 - [ ] 插件版本的行为与内置版本完全一致（对比测试通过）
-- [ ] 流式响应延迟增加不超过 5ms
+- [ ] 计费与用量统计与内置实现一致（含 cache token、image 计费、reasoning_effort）
+- [ ] ProviderResultMetadata 回传 Usage/Model/RequestID 正确
+- [ ] 流式响应延迟增加：待基准测试验证（不设具体数字，需实测后定标）
 
 ---
 
@@ -284,11 +291,15 @@ Provider 插件化后，需要保留内置实现作为降级：
 
 | 风险 | 概率 | 影响 | 缓解措施 |
 |------|------|------|---------|
-| WASM 性能不达标 | 中 | 流式延迟增加 | 基准测试 + 内置降级 |
-| Provider 逻辑和核心耦合过深 | 中 | 抽取工作量大 | 渐进式重构，先抽简单的 |
+| **TinyGo WASM goroutine 限制** | 高 | Provider 无法做 SSE 流式 | Host 流式编排（Phase 2.0 前置任务）|
+| **Host API HTTP 无流式** | 高 | 同上 | Host 实现流式 Fetch |
+| **WASM 内存不足** | 中 | 大 JSON 转换 OOM | body 大小限制（2MB）+ 分块处理 |
+| **Provider 与核心耦合过深** | 中 | 抽取工作量大 | 先明确切割线（见 03 文档），再渐进式迁移 |
+| **计费数据回传不一致** | 中 | Usage 丢失、计费错误 | ProviderResultMetadata 强类型约定 + 对比测试 |
 | 插件间交互复杂 | 低 | 调试困难 | 可观测性 + 插件隔离 |
 | 社区参与度不足 | 中 | 生态冷启动 | 官方先发布核心插件做示范 |
-| 安全漏洞 | 低 | 插件越权 | 能力授权 + 签名验证 + 沙箱隔离 |
+| 安全漏洞（市场端） | 中 | 提交滥用、路径遍历 | Phase 0 安全加固 |
+| 安全漏洞（运行时） | 低 | 插件越权 | 能力授权 + 签名验证 + 沙箱隔离 |
 | GitHub API 限流 | 中 | SyncJob 批量同步受限 | 重试 + 指数退避 + 缓存 |
 | 版本语义不明确 | 低 | compatible_with 比较规则歧义 | 明确 semver 范围匹配规则 |
 
@@ -296,9 +307,10 @@ Provider 插件化后，需要保留内置实现作为降级：
 
 ## 里程碑总结
 
-| Phase | 交付物 | 核心价值 |
-|-------|--------|---------|
-| Phase 1 | 链路打通 + 市场补齐 | 插件系统可用 |
-| Phase 2 | 4 个 Provider 插件 | 新 Provider 不改核心代码 |
-| Phase 3 | 7 个 Transform/Interceptor 插件 | 协议转换可独立升级 |
-| Phase 4 | SDK + CLI + 文档 | 社区可以贡献插件 |
+| Phase | 交付物 | 核心价值 | 预计周期 |
+|-------|--------|---------|---------|
+| Phase 0 | 安全加固 + 数据完整性修复 | 市场端安全可靠 | 1-2 周 |
+| Phase 1 | 链路打通 + 市场补齐 | 插件系统可用 | 2-3 周 |
+| Phase 2 | Host 流式编排 + 4 个 Provider 插件 | 新 Provider 不改核心代码 | 4-6 周 |
+| Phase 3 | 7 个 Transform/Interceptor 插件 | 协议转换可独立升级 | 3-4 周 |
+| Phase 4 | SDK + CLI + 文档 | 社区可以贡献插件 | 4+ 周 |

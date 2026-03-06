@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
@@ -13,6 +14,9 @@ import (
 
 // ErrInvalidSubmissionRequest 提交请求参数错误
 var ErrInvalidSubmissionRequest = errors.New("invalid submission request")
+
+// pluginNameRegex 插件名只允许小写字母、数字和连字符，首尾必须是字母或数字，长度 2-64
+var pluginNameRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$`)
 
 // SubmissionService 开发者公开提交通道服务
 type SubmissionService struct {
@@ -51,6 +55,9 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, req *CreateSub
 	pluginName := strings.TrimSpace(req.PluginName)
 	if pluginName == "" {
 		return nil, fmt.Errorf("%w: plugin_name 不能为空", ErrInvalidSubmissionRequest)
+	}
+	if len(pluginName) < 2 || !pluginNameRegex.MatchString(pluginName) {
+		return nil, fmt.Errorf("%w: plugin_name 格式非法，仅允许小写字母、数字和连字符，长度 2-64", ErrInvalidSubmissionRequest)
 	}
 
 	displayName := strings.TrimSpace(req.DisplayName)

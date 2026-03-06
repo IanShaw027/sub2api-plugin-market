@@ -258,6 +258,74 @@ func TestGitHubWebhookHandler_PluginNotMatchedIgnored(t *testing.T) {
 	assert.Equal(t, "ignored", resp.Message)
 }
 
+func TestGitHubWebhookHandler_EmptySecretReleaseMode(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	defer gin.SetMode(gin.TestMode)
+
+	service := &mockGitHubWebhookSyncService{}
+	h := NewGitHubWebhookHandler(service, "", 3, 2)
+
+	body := `{"action":"published","repository":{"html_url":"https://github.com/example/demo"},"release":{"tag_name":"v1.0.0"}}`
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/integrations/github/webhook", bytes.NewBufferString(body))
+	c.Request.Header.Set("X-GitHub-Event", "release")
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.HandleGitHubWebhook(c)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	var resp Response
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, ErrCodeForbidden, resp.Code)
+	assert.Contains(t, resp.Message, "生产环境拒绝处理")
+}
+
+func TestGitHubWebhookHandler_EmptySecretDebugMode(t *testing.T) {
+	gin.SetMode(gin.DebugMode)
+	defer gin.SetMode(gin.TestMode)
+
+	pluginID := uuid.New()
+	jobID := uuid.New()
+
+	service := &mockGitHubWebhookSyncService{
+		findPluginFn: func(ctx context.Context, repoURL string) (*ent.Plugin, error) {
+			return &ent.Plugin{ID: pluginID}, nil
+		},
+		isDuplicateAutoFn: func(ctx context.Context, pluginIDArg, targetRef string) (bool, error) {
+			return false, nil
+		},
+		enqueueAutoSyncFn: func(ctx context.Context, pluginIDArg, targetRef string) (*ent.SyncJob, error) {
+			return &ent.SyncJob{ID: jobID, PluginID: pluginID, TriggerType: syncjob.TriggerTypeAuto, Status: syncjob.StatusPending}, nil
+		},
+		processWithRetryInvoked: make(chan struct{}, 1),
+	}
+	h := NewGitHubWebhookHandler(service, "", 3, 2)
+
+	body := `{
+		"action":"published",
+		"repository":{"html_url":"https://github.com/example/demo"},
+		"release":{"tag_name":"v1.0.0"}
+	}`
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/integrations/github/webhook", bytes.NewBufferString(body))
+	c.Request.Header.Set("X-GitHub-Event", "release")
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.HandleGitHubWebhook(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp Response
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, resp.Code)
+	assert.Equal(t, "success", resp.Message)
+}
+
 func TestGitHubWebhookHandler_UsesInjectedRetryConfig(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

@@ -81,6 +81,8 @@
 | **KV** | `pluginruntime/host_api_kv.go` | 键值存储（读/写/删） | 读: `CapabilityHostKVRead`，写: `CapabilityHostKVWrite` |
 | **Log** | `pluginruntime/host_api_log.go` | 日志输出（Debug/Info/Warn/Error） | `CapabilityHostLogWrite` |
 
+> ⚠️ **HTTP Host API 流式能力缺失**: 当前实现使用 `io.ReadAll(httpResp.Body)` 一次性读取完整响应 body，**不支持流式响应**（streaming response）。这意味着 Provider 类插件无法在 WASM 内部实现 SSE 流式转发。要支持 Provider 插件化，需要扩展 Host API HTTP 增加流式 Fetch 能力（回调式或 channel 式逐行读取），详见 [03-PLUGGABLE-MODULES.md](./03-PLUGGABLE-MODULES.md) 的 WASM 限制章节。
+
 ### 能力授权
 
 ```
@@ -112,6 +114,14 @@ type StreamWriter interface {
     Close() error
 }
 ```
+
+> ⚠️ **接口能力缺口**: 当前 StreamWriter 缺少以下能力，如果要支持 Provider 插件的完整 SSE 流式场景，需要扩展：
+>
+> | 缺失能力 | 用途 | 建议 |
+> |---------|------|------|
+> | `Flush() error` | SSE 要求立即刷到客户端 | 新增方法 |
+> | `SetStatus(code int)` | 流式写入前需设置 HTTP 200 | 新增方法或由核心预设 |
+> | 客户端断开检测 | 避免向已断开的连接写入 | 新增 `Done() <-chan struct{}` |
 
 ---
 

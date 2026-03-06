@@ -82,6 +82,11 @@ func (h *GitHubWebhookHandler) HandleGitHubWebhook(c *gin.Context) {
 		return
 	}
 
+	if h.secret == "" && gin.Mode() == gin.ReleaseMode {
+		Error(c, ErrCodeForbidden, "webhook secret 未配置，生产环境拒绝处理")
+		return
+	}
+
 	if h.secret != "" {
 		signature := strings.TrimSpace(c.GetHeader("X-Hub-Signature-256"))
 		if !verifyGitHubSignature(body, h.secret, signature) {

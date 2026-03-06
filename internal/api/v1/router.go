@@ -1,6 +1,10 @@
 package v1
 
 import (
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/handler"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/api/v1/middleware"
 	"github.com/gin-gonic/gin"
@@ -38,9 +42,19 @@ func RegisterRoutes(r *gin.Engine,
 		}
 
 		// 开发者提交相关路由
-		v1.POST("/submissions", submissionHandler.CreateSubmission)
+		submissionRateLimit := middleware.NewIPRateLimiter(rateLimitFromEnv(), 60*time.Second)
+		v1.POST("/submissions", submissionRateLimit, submissionHandler.CreateSubmission)
 
 		// 集成回调路由
 		v1.POST("/integrations/github/webhook", githubWebhookHandler.HandleGitHubWebhook)
 	}
+}
+
+func rateLimitFromEnv() int {
+	if v := os.Getenv("SUBMISSION_RATE_LIMIT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 10
 }

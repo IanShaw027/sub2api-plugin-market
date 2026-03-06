@@ -13,6 +13,7 @@ import (
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent/enttest"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/syncjob"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -210,6 +211,136 @@ func TestSyncService_EnqueueAutoSync_CreatesPendingAutoJob(t *testing.T) {
 	assert.Equal(t, syncjob.TriggerTypeAuto, job.TriggerType)
 	assert.Equal(t, syncjob.StatusPending, job.Status)
 	assert.Equal(t, "v1.2.3", job.TargetRef)
+}
+
+// syncTestCallbackStorage tracks upload/delete calls and supports an onUpload callback
+// to inject side effects (e.g. creating a conflicting DB record mid-sync).
+type syncTestCallbackStorage struct {
+	uploadCount int
+	deleteCount int
+	deletedKeys []string
+	onUpload    func(ctx context.Context, key string)
+}
+
+func (s *syncTestCallbackStorage) Upload(ctx context.Context, key string, _ io.Reader) (string, error) {
+	s.uploadCount++
+	if s.onUpload != nil {
+		s.onUpload(ctx, key)
+	}
+	return "https://example.com/uploaded", nil
+}
+func (s *syncTestCallbackStorage) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewBufferString("wasm-binary:" + key)), nil
+}
+func (s *syncTestCallbackStorage) GetPresignedURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return fmt.Sprintf("https://example.com/download%s", key), nil
+}
+func (s *syncTestCallbackStorage) Delete(_ context.Context, key string) error {
+	s.deleteCount++
+	s.deletedKeys = append(s.deletedKeys, key)
+	return nil
+}
+func (s *syncTestCallbackStorage) Exists(_ context.Context, _ string) (bool, error) {
+	return true, nil
+}
+
+func TestSyncService_ConcurrentLock_BlocksDuplicate(t *testing.T) {
+	svc := &SyncService{}
+
+	unlock1, err := svc.acquireSyncLock("plugin-a", "v1.0.0")
+	require.NoError(t, err)
+	require.NotNil(t, unlock1)
+
+	// Same key must be rejected while lock is held
+	_, err = svc.acquireSyncLock("plugin-a", "v1.0.0")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "concurrent sync in progress")
+
+	// Different key is independent — must succeed
+	unlock2, err := svc.acquireSyncLock("plugin-b", "v1.0.0")
+	require.NoError(t, err)
+	require.NotNil(t, unlock2)
+	unlock2()
+
+	// After releasing the first lock, same key succeeds again
+	unlock1()
+	unlock3, err := svc.acquireSyncLock("plugin-a", "v1.0.0")
+	require.NoError(t, err)
+	require.NotNil(t, unlock3)
+	unlock3()
+}
+
+func TestSyncService_OrphanCleanup_DeleteCalledOnCreateFailure(t *testing.T) {
+	wasmBytes := []byte{0x00, 0x61, 0x73, 0x6d}
+	releaseJSON := func(baseURL string) []byte {
+		assetURL := baseURL + "/assets/plugin.wasm"
+		b, _ := json.Marshal(map[string]any{
+			"tag_name": "v1.0.0",
+			"assets": []map[string]any{
+				{"name": "plugin.wasm", "browser_download_url": assetURL},
+			},
+		})
+		return b
+	}
+
+	mux := http.NewServeMux()
+	var baseURL string
+	mux.HandleFunc("/repos/example/orphan-cleanup-test/releases/tags/v1.0.0", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(releaseJSON(baseURL))
+	})
+	mux.HandleFunc("/assets/plugin.wasm", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(wasmBytes)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	baseURL = server.URL
+
+	client := enttest.Open(t, "sqlite3", "file:sync_service_orphan_cleanup_test?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	ctx := context.Background()
+	pluginRecord, err := client.Plugin.Create().
+		SetName("orphan-cleanup-test").
+		SetDisplayName("Orphan Cleanup Test").
+		SetDescription("test").
+		SetAuthor("tester").
+		SetCategory(plugin.CategoryOther).
+		SetSourceType(plugin.SourceTypeGithub).
+		SetStatus(plugin.StatusActive).
+		SetGithubRepoURL("https://github.com/example/orphan-cleanup-test").
+		Save(ctx)
+	require.NoError(t, err)
+
+	// The onUpload callback inserts a conflicting version AFTER versionAvailable
+	// passes but BEFORE PluginVersion.Create, triggering a unique constraint
+	// violation and exercising the orphan WASM cleanup path.
+	trackingStorage := &syncTestCallbackStorage{
+		onUpload: func(cbCtx context.Context, _ string) {
+			_, _ = client.PluginVersion.Create().
+				SetPluginID(pluginRecord.ID).
+				SetVersion("v1.0.0").
+				SetStatus(pluginversion.StatusDraft).
+				SetWasmURL("conflict").
+				SetWasmHash("sha256-conflict").
+				SetSignature("").
+				SetFileSize(1).
+				SetMinAPIVersion("1.0.0").
+				SetPluginAPIVersion("1.0.0").
+				Save(cbCtx)
+		},
+	}
+
+	svc := NewSyncService(client, trackingStorage)
+	svc.githubAPIBase = baseURL
+	svc.httpClient = server.Client()
+
+	err = svc.runGitHubSync(ctx, pluginRecord.ID, "v1.0.0")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create plugin version")
+	assert.Equal(t, 1, trackingStorage.uploadCount, "upload should have been called")
+	assert.Equal(t, 1, trackingStorage.deleteCount, "delete should have been called to cleanup orphan wasm")
+	assert.Contains(t, trackingStorage.deletedKeys[0], "orphan-cleanup-test")
 }
 
 func TestSyncService_ProcessSyncJobWithRetry_RetryDelayFallbackAndMaxAttemptsFallback(t *testing.T) {

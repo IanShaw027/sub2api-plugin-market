@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -33,6 +34,8 @@ type SyncService struct {
 	storage        storage.Storage
 	httpClient     *http.Client // optional; nil means http.DefaultClient (for tests: inject mock)
 	githubAPIBase  string        // optional; empty means "https://api.github.com" (for tests: inject mock server URL)
+	signingKeyID   string              // from PLUGIN_SIGNING_KEY_ID env; empty = signing disabled
+	signingKey     ed25519.PrivateKey  // parsed from PLUGIN_SIGNING_PRIVATE_KEY env (hex-encoded)
 }
 
 // ListSyncJobsParams 同步任务列表查询参数
@@ -48,7 +51,22 @@ type ListSyncJobsParams struct {
 
 // NewSyncService 创建同步服务
 func NewSyncService(client *ent.Client, storage storage.Storage) *SyncService {
-	return &SyncService{client: client, storage: storage}
+	s := &SyncService{client: client, storage: storage}
+
+	keyID := os.Getenv("PLUGIN_SIGNING_KEY_ID")
+	keyHex := os.Getenv("PLUGIN_SIGNING_PRIVATE_KEY")
+	if keyID != "" && keyHex != "" {
+		keyBytes, err := hex.DecodeString(keyHex)
+		if err == nil && len(keyBytes) == ed25519.PrivateKeySize {
+			s.signingKeyID = keyID
+			s.signingKey = ed25519.PrivateKey(keyBytes)
+			slog.Info("sync service: plugin signing enabled", "key_id", keyID)
+		} else {
+			slog.Warn("sync service: invalid signing key, signing disabled", "key_id", keyID)
+		}
+	}
+
+	return s
 }
 
 // CreateAndRunManualSync 创建并立即执行手动同步任务
@@ -352,6 +370,34 @@ func (s *SyncService) acquireSyncLock(pluginID, targetRef string) (unlock func()
 	}, nil
 }
 
+// CanSign reports whether automatic signing is configured.
+func (s *SyncService) CanSign() bool {
+	return s.signingKey != nil
+}
+
+func (s *SyncService) signAndPublish(ctx context.Context, versionID uuid.UUID, wasmHash string) error {
+	if s.signingKey == nil {
+		slog.Info("signing not configured, version remains draft", "version_id", versionID)
+		return nil
+	}
+
+	signature := ed25519.Sign(s.signingKey, []byte(wasmHash))
+	signatureHex := hex.EncodeToString(signature)
+
+	_, err := s.client.PluginVersion.UpdateOneID(versionID).
+		SetSignature(signatureHex).
+		SetSignKeyID(s.signingKeyID).
+		SetStatus(pluginversion.StatusPublished).
+		SetPublishedAt(time.Now()).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("sign and publish: %w", err)
+	}
+
+	slog.Info("version signed and published", "version_id", versionID, "key_id", s.signingKeyID)
+	return nil
+}
+
 func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, targetRef string) error {
 	pluginRecord, err := s.client.Plugin.Get(ctx, pluginID)
 	if err != nil {
@@ -431,7 +477,7 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 	}
 
 	// 7. Create PluginVersion — cleanup orphan WASM on failure (S-07)
-	_, err = s.client.PluginVersion.Create().
+	pv, err := s.client.PluginVersion.Create().
 		SetPluginID(pluginID).
 		SetVersion(targetRef).
 		SetStatus(pluginversion.StatusDraft).
@@ -447,6 +493,11 @@ func (s *SyncService) runGitHubSync(ctx context.Context, pluginID uuid.UUID, tar
 			slog.Error("failed to cleanup orphan wasm", "key", storageKey, "error", delErr)
 		}
 		return fmt.Errorf("create plugin version: %w", err)
+	}
+
+	// 8. Sign and auto-publish if signing is configured (F-05)
+	if err := s.signAndPublish(ctx, pv.ID, wasmHash); err != nil {
+		slog.Error("failed to sign version, remains as draft", "error", err, "version_id", pv.ID)
 	}
 
 	return nil

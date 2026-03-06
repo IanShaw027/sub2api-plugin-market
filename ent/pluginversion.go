@@ -45,6 +45,8 @@ type PluginVersion struct {
 	MaxAPIVersion string `json:"max_api_version,omitempty"`
 	// 依赖列表
 	Dependencies []map[string]string `json:"dependencies,omitempty"`
+	// 所需 Host API 能力列表，如 host_http_fetch, host_kv_read
+	Capabilities []string `json:"capabilities,omitempty"`
 	// 版本状态
 	Status pluginversion.Status `json:"status,omitempty"`
 	// 发布时间
@@ -98,7 +100,7 @@ func (*PluginVersion) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case pluginversion.FieldDependencies:
+		case pluginversion.FieldDependencies, pluginversion.FieldCapabilities:
 			values[i] = new([]byte)
 		case pluginversion.FieldFileSize:
 			values[i] = new(sql.NullInt64)
@@ -203,6 +205,14 @@ func (_m *PluginVersion) assignValues(columns []string, values []any) error {
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &_m.Dependencies); err != nil {
 					return fmt.Errorf("unmarshal field dependencies: %w", err)
+				}
+			}
+		case pluginversion.FieldCapabilities:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field capabilities", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Capabilities); err != nil {
+					return fmt.Errorf("unmarshal field capabilities: %w", err)
 				}
 			}
 		case pluginversion.FieldStatus:
@@ -317,6 +327,9 @@ func (_m *PluginVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("dependencies=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Dependencies))
+	builder.WriteString(", ")
+	builder.WriteString("capabilities=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Capabilities))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))

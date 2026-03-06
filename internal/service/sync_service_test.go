@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -405,4 +407,105 @@ func TestSyncService_ProcessSyncJobWithRetry_RetryDelayFallbackAndMaxAttemptsFal
 	require.NoError(t, err)
 	assert.Equal(t, syncjob.StatusSucceeded, updated.Status)
 	assert.Less(t, elapsed, 1500*time.Millisecond)
+}
+
+func TestSyncService_SignAndPublish_WithKey(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:sync_sign_with_key_test?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	_, privKey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	svc := NewSyncService(client, &syncTestFakeStorage{})
+	svc.signingKeyID = "test-key-001"
+	svc.signingKey = privKey
+
+	ctx := context.Background()
+	p, err := client.Plugin.Create().
+		SetName("sign-test").
+		SetDisplayName("Sign Test").
+		SetCategory(plugin.CategoryOther).
+		SetDescription("test").
+		SetAuthor("test").
+		SetSourceType(plugin.SourceTypeGithub).
+		SetGithubRepoURL("https://github.com/test/sign-test").
+		Save(ctx)
+	require.NoError(t, err)
+
+	pv, err := client.PluginVersion.Create().
+		SetPluginID(p.ID).
+		SetVersion("v1.0.0").
+		SetWasmURL("plugins/sign-test/v1.0.0/plugin.wasm").
+		SetWasmHash("sha256-abc123hash").
+		SetFileSize(1024).
+		SetMinAPIVersion("1.0.0").
+		SetPluginAPIVersion("1.0.0").
+		SetStatus(pluginversion.StatusDraft).
+		Save(ctx)
+	require.NoError(t, err)
+
+	err = svc.signAndPublish(ctx, pv.ID, "sha256-abc123hash")
+	require.NoError(t, err)
+
+	got, err := client.PluginVersion.Get(ctx, pv.ID)
+	require.NoError(t, err)
+	assert.Equal(t, pluginversion.StatusPublished, got.Status)
+	assert.NotEmpty(t, got.Signature)
+	assert.Equal(t, "test-key-001", got.SignKeyID)
+	assert.False(t, got.PublishedAt.IsZero())
+
+	pubKey := privKey.Public().(ed25519.PublicKey)
+	sigBytes, err := hex.DecodeString(got.Signature)
+	require.NoError(t, err)
+	assert.True(t, ed25519.Verify(pubKey, []byte("sha256-abc123hash"), sigBytes))
+}
+
+func TestSyncService_SignAndPublish_NoKey(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:sync_sign_no_key_test?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	svc := NewSyncService(client, &syncTestFakeStorage{})
+
+	ctx := context.Background()
+	p, err := client.Plugin.Create().
+		SetName("nosign-test").
+		SetDisplayName("NoSign Test").
+		SetCategory(plugin.CategoryOther).
+		SetDescription("test").
+		SetAuthor("test").
+		SetSourceType(plugin.SourceTypeGithub).
+		SetGithubRepoURL("https://github.com/test/nosign-test").
+		Save(ctx)
+	require.NoError(t, err)
+
+	pv, err := client.PluginVersion.Create().
+		SetPluginID(p.ID).
+		SetVersion("v1.0.0").
+		SetWasmURL("test.wasm").
+		SetWasmHash("sha256-hash").
+		SetFileSize(512).
+		SetMinAPIVersion("1.0.0").
+		SetPluginAPIVersion("1.0.0").
+		SetStatus(pluginversion.StatusDraft).
+		Save(ctx)
+	require.NoError(t, err)
+
+	err = svc.signAndPublish(ctx, pv.ID, "sha256-hash")
+	require.NoError(t, err)
+
+	got, err := client.PluginVersion.Get(ctx, pv.ID)
+	require.NoError(t, err)
+	assert.Equal(t, pluginversion.StatusDraft, got.Status)
+	assert.Empty(t, got.Signature)
+	assert.Empty(t, got.SignKeyID)
+}
+
+func TestSyncService_CanSign(t *testing.T) {
+	svc := &SyncService{}
+	assert.False(t, svc.CanSign())
+
+	_, privKey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+	svc.signingKey = privKey
+	assert.True(t, svc.CanSign())
 }

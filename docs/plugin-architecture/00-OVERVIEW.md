@@ -49,6 +49,7 @@ Sub2API 是一个 AI API 网关，支持将 AI 订阅配额（Claude、OpenAI、
 | [04-PLUGIN-MARKET-REVIEW.md](./04-PLUGIN-MARKET-REVIEW.md) | 插件市场设计评审（含安全审查 §7） |
 | [05-EXTRACTION-ROADMAP.md](./05-EXTRACTION-ROADMAP.md) | 插件化实施路线图（Phase 0-4） |
 | [06-COMPLETE-IMPLEMENTATION-PLAN.md](./06-COMPLETE-IMPLEMENTATION-PLAN.md) | **完整实施方案（可执行蓝图）** |
+| [07-IMPLEMENTATION-CHECKLIST.md](./07-IMPLEMENTATION-CHECKLIST.md) | **实施清单（逐项打勾跟踪表）** |
 
 ## 5. 请求链路中的分工
 

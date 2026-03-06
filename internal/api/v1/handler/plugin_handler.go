@@ -25,6 +25,7 @@ func (h *PluginHandler) ListPlugins(c *gin.Context) {
 	// 解析查询参数
 	category := c.Query("category")
 	search := c.Query("search")
+	pluginType := c.Query("type")
 
 	var isOfficial *bool
 	if isOfficialStr := c.Query("is_official"); isOfficialStr != "" {
@@ -39,6 +40,7 @@ func (h *PluginHandler) ListPlugins(c *gin.Context) {
 	req := &service.ListPluginsRequest{
 		Category:   category,
 		Search:     search,
+		PluginType: pluginType,
 		IsOfficial: isOfficial,
 		Page:       page,
 		PageSize:   pageSize,
@@ -80,7 +82,9 @@ func (h *PluginHandler) GetPluginVersions(c *gin.Context) {
 		return
 	}
 
-	versions, err := h.pluginService.GetPluginVersions(c.Request.Context(), name)
+	compatibleWith := c.Query("compatible_with")
+
+	versions, err := h.pluginService.GetPluginVersions(c.Request.Context(), name, compatibleWith)
 	if err != nil {
 		Error(c, ErrCodeNotFound, "插件不存在")
 		return

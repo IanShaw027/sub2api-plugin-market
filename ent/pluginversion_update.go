@@ -235,6 +235,24 @@ func (_u *PluginVersionUpdate) ClearDependencies() *PluginVersionUpdate {
 	return _u
 }
 
+// SetCapabilities sets the "capabilities" field.
+func (_u *PluginVersionUpdate) SetCapabilities(v []string) *PluginVersionUpdate {
+	_u.mutation.SetCapabilities(v)
+	return _u
+}
+
+// AppendCapabilities appends value to the "capabilities" field.
+func (_u *PluginVersionUpdate) AppendCapabilities(v []string) *PluginVersionUpdate {
+	_u.mutation.AppendCapabilities(v)
+	return _u
+}
+
+// ClearCapabilities clears the value of the "capabilities" field.
+func (_u *PluginVersionUpdate) ClearCapabilities() *PluginVersionUpdate {
+	_u.mutation.ClearCapabilities()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *PluginVersionUpdate) SetStatus(v pluginversion.Status) *PluginVersionUpdate {
 	_u.mutation.SetStatus(v)
@@ -462,6 +480,17 @@ func (_u *PluginVersionUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if _u.mutation.DependenciesCleared() {
 		_spec.ClearField(pluginversion.FieldDependencies, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Capabilities(); ok {
+		_spec.SetField(pluginversion.FieldCapabilities, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedCapabilities(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, pluginversion.FieldCapabilities, value)
+		})
+	}
+	if _u.mutation.CapabilitiesCleared() {
+		_spec.ClearField(pluginversion.FieldCapabilities, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(pluginversion.FieldStatus, field.TypeEnum, value)
@@ -756,6 +785,24 @@ func (_u *PluginVersionUpdateOne) ClearDependencies() *PluginVersionUpdateOne {
 	return _u
 }
 
+// SetCapabilities sets the "capabilities" field.
+func (_u *PluginVersionUpdateOne) SetCapabilities(v []string) *PluginVersionUpdateOne {
+	_u.mutation.SetCapabilities(v)
+	return _u
+}
+
+// AppendCapabilities appends value to the "capabilities" field.
+func (_u *PluginVersionUpdateOne) AppendCapabilities(v []string) *PluginVersionUpdateOne {
+	_u.mutation.AppendCapabilities(v)
+	return _u
+}
+
+// ClearCapabilities clears the value of the "capabilities" field.
+func (_u *PluginVersionUpdateOne) ClearCapabilities() *PluginVersionUpdateOne {
+	_u.mutation.ClearCapabilities()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *PluginVersionUpdateOne) SetStatus(v pluginversion.Status) *PluginVersionUpdateOne {
 	_u.mutation.SetStatus(v)
@@ -1013,6 +1060,17 @@ func (_u *PluginVersionUpdateOne) sqlSave(ctx context.Context) (_node *PluginVer
 	}
 	if _u.mutation.DependenciesCleared() {
 		_spec.ClearField(pluginversion.FieldDependencies, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Capabilities(); ok {
+		_spec.SetField(pluginversion.FieldCapabilities, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedCapabilities(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, pluginversion.FieldCapabilities, value)
+		})
+	}
+	if _u.mutation.CapabilitiesCleared() {
+		_spec.ClearField(pluginversion.FieldCapabilities, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(pluginversion.FieldStatus, field.TypeEnum, value)

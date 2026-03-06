@@ -105,6 +105,20 @@ func (_c *PluginCreate) SetNillableCategory(v *plugin.Category) *PluginCreate {
 	return _c
 }
 
+// SetPluginType sets the "plugin_type" field.
+func (_c *PluginCreate) SetPluginType(v plugin.PluginType) *PluginCreate {
+	_c.mutation.SetPluginType(v)
+	return _c
+}
+
+// SetNillablePluginType sets the "plugin_type" field if the given value is not nil.
+func (_c *PluginCreate) SetNillablePluginType(v *plugin.PluginType) *PluginCreate {
+	if v != nil {
+		_c.SetPluginType(*v)
+	}
+	return _c
+}
+
 // SetTags sets the "tags" field.
 func (_c *PluginCreate) SetTags(v []string) *PluginCreate {
 	_c.mutation.SetTags(v)
@@ -460,6 +474,11 @@ func (_c *PluginCreate) check() error {
 			return &ValidationError{Name: "category", err: fmt.Errorf(`ent: validator failed for field "Plugin.category": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.PluginType(); ok {
+		if err := plugin.PluginTypeValidator(v); err != nil {
+			return &ValidationError{Name: "plugin_type", err: fmt.Errorf(`ent: validator failed for field "Plugin.plugin_type": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.IsOfficial(); !ok {
 		return &ValidationError{Name: "is_official", err: errors.New(`ent: missing required field "Plugin.is_official"`)}
 	}
@@ -570,6 +589,10 @@ func (_c *PluginCreate) createSpec() (*Plugin, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Category(); ok {
 		_spec.SetField(plugin.FieldCategory, field.TypeEnum, value)
 		_node.Category = value
+	}
+	if value, ok := _c.mutation.PluginType(); ok {
+		_spec.SetField(plugin.FieldPluginType, field.TypeEnum, value)
+		_node.PluginType = value
 	}
 	if value, ok := _c.mutation.Tags(); ok {
 		_spec.SetField(plugin.FieldTags, field.TypeJSON, value)

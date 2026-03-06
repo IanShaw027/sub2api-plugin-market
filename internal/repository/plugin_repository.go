@@ -20,13 +20,18 @@ func NewPluginRepository(client *ent.Client) *PluginRepository {
 }
 
 // ListPlugins 查询插件列表
-func (r *PluginRepository) ListPlugins(ctx context.Context, category, search string, isOfficial *bool, offset, limit int) ([]*ent.Plugin, int, error) {
+func (r *PluginRepository) ListPlugins(ctx context.Context, category, search, pluginType string, isOfficial *bool, offset, limit int) ([]*ent.Plugin, int, error) {
 	query := r.client.Plugin.Query().
 		Where(plugin.StatusEQ(plugin.StatusActive))
 
 	// 分类过滤
 	if category != "" {
 		query = query.Where(plugin.CategoryEQ(plugin.Category(category)))
+	}
+
+	// 插件类型过滤
+	if pluginType != "" {
+		query = query.Where(plugin.PluginTypeEQ(plugin.PluginType(pluginType)))
 	}
 
 	// 官方插件过滤
@@ -76,7 +81,8 @@ func (r *PluginRepository) GetPluginByName(ctx context.Context, name string) (*e
 }
 
 // GetPluginVersions 获取插件的所有版本
-func (r *PluginRepository) GetPluginVersions(ctx context.Context, pluginName string) ([]*ent.PluginVersion, error) {
+// compatibleWith 非空时，仅返回 min_api_version <= compatibleWith 的版本。
+func (r *PluginRepository) GetPluginVersions(ctx context.Context, pluginName, compatibleWith string) ([]*ent.PluginVersion, error) {
 	p, err := r.client.Plugin.Query().
 		Where(
 			plugin.NameEQ(pluginName),
@@ -87,11 +93,17 @@ func (r *PluginRepository) GetPluginVersions(ctx context.Context, pluginName str
 		return nil, err
 	}
 
-	return r.client.PluginVersion.Query().
+	query := r.client.PluginVersion.Query().
 		Where(
 			pluginversion.PluginIDEQ(p.ID),
 			pluginversion.StatusEQ(pluginversion.StatusPublished),
-		).
+		)
+
+	if compatibleWith != "" {
+		query = query.Where(pluginversion.MinAPIVersionLTE(compatibleWith))
+	}
+
+	return query.
 		Order(ent.Desc(pluginversion.FieldPublishedAt)).
 		All(ctx)
 }

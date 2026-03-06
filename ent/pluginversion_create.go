@@ -127,6 +127,12 @@ func (_c *PluginVersionCreate) SetDependencies(v []map[string]string) *PluginVer
 	return _c
 }
 
+// SetCapabilities sets the "capabilities" field.
+func (_c *PluginVersionCreate) SetCapabilities(v []string) *PluginVersionCreate {
+	_c.mutation.SetCapabilities(v)
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *PluginVersionCreate) SetStatus(v pluginversion.Status) *PluginVersionCreate {
 	_c.mutation.SetStatus(v)
@@ -422,6 +428,10 @@ func (_c *PluginVersionCreate) createSpec() (*PluginVersion, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.Dependencies(); ok {
 		_spec.SetField(pluginversion.FieldDependencies, field.TypeJSON, value)
 		_node.Dependencies = value
+	}
+	if value, ok := _c.mutation.Capabilities(); ok {
+		_spec.SetField(pluginversion.FieldCapabilities, field.TypeJSON, value)
+		_node.Capabilities = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(pluginversion.FieldStatus, field.TypeEnum, value)

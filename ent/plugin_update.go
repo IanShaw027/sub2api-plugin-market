@@ -158,6 +158,26 @@ func (_u *PluginUpdate) SetNillableCategory(v *plugin.Category) *PluginUpdate {
 	return _u
 }
 
+// SetPluginType sets the "plugin_type" field.
+func (_u *PluginUpdate) SetPluginType(v plugin.PluginType) *PluginUpdate {
+	_u.mutation.SetPluginType(v)
+	return _u
+}
+
+// SetNillablePluginType sets the "plugin_type" field if the given value is not nil.
+func (_u *PluginUpdate) SetNillablePluginType(v *plugin.PluginType) *PluginUpdate {
+	if v != nil {
+		_u.SetPluginType(*v)
+	}
+	return _u
+}
+
+// ClearPluginType clears the value of the "plugin_type" field.
+func (_u *PluginUpdate) ClearPluginType() *PluginUpdate {
+	_u.mutation.ClearPluginType()
+	return _u
+}
+
 // SetTags sets the "tags" field.
 func (_u *PluginUpdate) SetTags(v []string) *PluginUpdate {
 	_u.mutation.SetTags(v)
@@ -547,6 +567,11 @@ func (_u *PluginUpdate) check() error {
 			return &ValidationError{Name: "category", err: fmt.Errorf(`ent: validator failed for field "Plugin.category": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PluginType(); ok {
+		if err := plugin.PluginTypeValidator(v); err != nil {
+			return &ValidationError{Name: "plugin_type", err: fmt.Errorf(`ent: validator failed for field "Plugin.plugin_type": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DownloadCount(); ok {
 		if err := plugin.DownloadCountValidator(v); err != nil {
 			return &ValidationError{Name: "download_count", err: fmt.Errorf(`ent: validator failed for field "Plugin.download_count": %w`, err)}
@@ -611,6 +636,12 @@ func (_u *PluginUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Category(); ok {
 		_spec.SetField(plugin.FieldCategory, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.PluginType(); ok {
+		_spec.SetField(plugin.FieldPluginType, field.TypeEnum, value)
+	}
+	if _u.mutation.PluginTypeCleared() {
+		_spec.ClearField(plugin.FieldPluginType, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.Tags(); ok {
 		_spec.SetField(plugin.FieldTags, field.TypeJSON, value)
@@ -989,6 +1020,26 @@ func (_u *PluginUpdateOne) SetNillableCategory(v *plugin.Category) *PluginUpdate
 	if v != nil {
 		_u.SetCategory(*v)
 	}
+	return _u
+}
+
+// SetPluginType sets the "plugin_type" field.
+func (_u *PluginUpdateOne) SetPluginType(v plugin.PluginType) *PluginUpdateOne {
+	_u.mutation.SetPluginType(v)
+	return _u
+}
+
+// SetNillablePluginType sets the "plugin_type" field if the given value is not nil.
+func (_u *PluginUpdateOne) SetNillablePluginType(v *plugin.PluginType) *PluginUpdateOne {
+	if v != nil {
+		_u.SetPluginType(*v)
+	}
+	return _u
+}
+
+// ClearPluginType clears the value of the "plugin_type" field.
+func (_u *PluginUpdateOne) ClearPluginType() *PluginUpdateOne {
+	_u.mutation.ClearPluginType()
 	return _u
 }
 
@@ -1394,6 +1445,11 @@ func (_u *PluginUpdateOne) check() error {
 			return &ValidationError{Name: "category", err: fmt.Errorf(`ent: validator failed for field "Plugin.category": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PluginType(); ok {
+		if err := plugin.PluginTypeValidator(v); err != nil {
+			return &ValidationError{Name: "plugin_type", err: fmt.Errorf(`ent: validator failed for field "Plugin.plugin_type": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DownloadCount(); ok {
 		if err := plugin.DownloadCountValidator(v); err != nil {
 			return &ValidationError{Name: "download_count", err: fmt.Errorf(`ent: validator failed for field "Plugin.download_count": %w`, err)}
@@ -1475,6 +1531,12 @@ func (_u *PluginUpdateOne) sqlSave(ctx context.Context) (_node *Plugin, err erro
 	}
 	if value, ok := _u.mutation.Category(); ok {
 		_spec.SetField(plugin.FieldCategory, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.PluginType(); ok {
+		_spec.SetField(plugin.FieldPluginType, field.TypeEnum, value)
+	}
+	if _u.mutation.PluginTypeCleared() {
+		_spec.ClearField(plugin.FieldPluginType, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.Tags(); ok {
 		_spec.SetField(plugin.FieldTags, field.TypeJSON, value)

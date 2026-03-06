@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent/downloadlog"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
@@ -121,6 +122,43 @@ func TestListPlugins_Pagination(t *testing.T) {
 	assert.Equal(t, float64(2), data["page_size"])
 	plugins := data["plugins"].([]interface{})
 	assert.Len(t, plugins, 2)
+}
+
+// TestListPlugins_WithType 测试按插件类型过滤
+func TestListPlugins_WithType(t *testing.T) {
+	tc := SetupTestContext(t)
+	defer tc.Cleanup()
+
+	p1, err := tc.Client.Plugin.Create().
+		SetName("provider-plugin").
+		SetDisplayName("Provider Plugin").
+		SetCategory("proxy").
+		SetDescription("A provider").
+		SetAuthor("test").
+		SetPluginType("provider").
+		SetDownloadCount(0).
+		Save(context.Background())
+	require.NoError(t, err)
+	_ = p1
+
+	p2, err := tc.Client.Plugin.Create().
+		SetName("transform-plugin").
+		SetDisplayName("Transform Plugin").
+		SetCategory("other").
+		SetDescription("A transform").
+		SetAuthor("test").
+		SetPluginType("transform").
+		SetDownloadCount(0).
+		Save(context.Background())
+	require.NoError(t, err)
+	_ = p2
+
+	w := tc.PerformRequest("GET", "/api/v1/plugins?type=provider")
+	assert.Equal(t, 200, w.Code)
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	data := resp["data"].(map[string]interface{})
+	assert.Equal(t, float64(1), data["total"])
 }
 
 // TestGetPluginDetail_Success 测试获取插件详情成功
@@ -437,4 +475,58 @@ func TestGetTrustKeyDetail_NotFound(t *testing.T) {
 
 	// 检查错误码非 0
 	assert.NotEqual(t, float64(0), response["code"])
+}
+
+// TestGetPluginVersions_CompatibleWith 测试 compatible_with 兼容性过滤
+func TestGetPluginVersions_CompatibleWith(t *testing.T) {
+	tc := SetupTestContext(t)
+	defer tc.Cleanup()
+
+	p := tc.CreateTestPlugin(t, "compat-plugin", "proxy", false)
+
+	// v1.0.0 requires API 0.9.0
+	_, err := tc.Client.PluginVersion.Create().
+		SetPluginID(p.ID).
+		SetVersion("1.0.0").
+		SetMinAPIVersion("0.9.0").
+		SetPluginAPIVersion("1.0.0").
+		SetWasmURL("/test/1.0.0").
+		SetFileSize(1024).
+		SetWasmHash("hash-1").
+		SetSignature("sig-1").
+		SetStatus("published").
+		SetPublishedAt(time.Now()).
+		Save(context.Background())
+	require.NoError(t, err)
+
+	// v2.0.0 requires API 2.0.0
+	_, err = tc.Client.PluginVersion.Create().
+		SetPluginID(p.ID).
+		SetVersion("2.0.0").
+		SetMinAPIVersion("2.0.0").
+		SetPluginAPIVersion("2.0.0").
+		SetWasmURL("/test/2.0.0").
+		SetFileSize(2048).
+		SetWasmHash("hash-2").
+		SetSignature("sig-2").
+		SetStatus("published").
+		SetPublishedAt(time.Now().Add(time.Hour)).
+		Save(context.Background())
+	require.NoError(t, err)
+
+	// compatible_with=1.0.0 → only v1.0.0 (min=0.9.0 <= 1.0.0)
+	w := tc.PerformRequest("GET", "/api/v1/plugins/compat-plugin/versions?compatible_with=1.0.0")
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	data := resp["data"].(map[string]interface{})
+	assert.Equal(t, float64(1), data["total"])
+
+	// No filter → both versions
+	w2 := tc.PerformRequest("GET", "/api/v1/plugins/compat-plugin/versions")
+	assert.Equal(t, http.StatusOK, w2.Code)
+	var resp2 map[string]interface{}
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &resp2))
+	data2 := resp2["data"].(map[string]interface{})
+	assert.Equal(t, float64(2), data2["total"])
 }

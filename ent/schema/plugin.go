@@ -45,6 +45,10 @@ func (Plugin) Fields() []ent.Field {
 			Values("proxy", "auth", "analytics", "security", "other").
 			Default("other").
 			Comment("插件分类"),
+		field.Enum("plugin_type").
+			Values("interceptor", "transform", "provider").
+			Optional().
+			Comment("插件类型，对应 DispatchRuntime 的三个执行阶段"),
 		field.JSON("tags", []string{}).
 			Optional().
 			Comment("标签列表"),
@@ -107,5 +111,6 @@ func (Plugin) Indexes() []ent.Index {
 		index.Fields("category", "status"),
 		index.Fields("is_official", "status", "download_count"),
 		index.Fields("github_repo_normalized"),
+		index.Fields("plugin_type", "status"),
 	}
 }

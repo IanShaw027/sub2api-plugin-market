@@ -32,6 +32,8 @@ const (
 	FieldLicense = "license"
 	// FieldCategory holds the string denoting the category field in the database.
 	FieldCategory = "category"
+	// FieldPluginType holds the string denoting the plugin_type field in the database.
+	FieldPluginType = "plugin_type"
 	// FieldTags holds the string denoting the tags field in the database.
 	FieldTags = "tags"
 	// FieldIsOfficial holds the string denoting the is_official field in the database.
@@ -107,6 +109,7 @@ var Columns = []string{
 	FieldHomepageURL,
 	FieldLicense,
 	FieldCategory,
+	FieldPluginType,
 	FieldTags,
 	FieldIsOfficial,
 	FieldIsVerified,
@@ -188,6 +191,30 @@ func CategoryValidator(c Category) error {
 		return nil
 	default:
 		return fmt.Errorf("plugin: invalid enum value for category field: %q", c)
+	}
+}
+
+// PluginType defines the type for the "plugin_type" enum field.
+type PluginType string
+
+// PluginType values.
+const (
+	PluginTypeInterceptor PluginType = "interceptor"
+	PluginTypeTransform   PluginType = "transform"
+	PluginTypeProvider    PluginType = "provider"
+)
+
+func (pt PluginType) String() string {
+	return string(pt)
+}
+
+// PluginTypeValidator is a validator for the "plugin_type" field enum values. It is called by the builders before save.
+func PluginTypeValidator(pt PluginType) error {
+	switch pt {
+	case PluginTypeInterceptor, PluginTypeTransform, PluginTypeProvider:
+		return nil
+	default:
+		return fmt.Errorf("plugin: invalid enum value for plugin_type field: %q", pt)
 	}
 }
 
@@ -290,6 +317,11 @@ func ByLicense(opts ...sql.OrderTermOption) OrderOption {
 // ByCategory orders the results by the category field.
 func ByCategory(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCategory, opts...).ToFunc()
+}
+
+// ByPluginType orders the results by the plugin_type field.
+func ByPluginType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPluginType, opts...).ToFunc()
 }
 
 // ByIsOfficial orders the results by the is_official field.

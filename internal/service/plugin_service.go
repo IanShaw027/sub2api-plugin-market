@@ -21,6 +21,7 @@ func NewPluginService(repo *repository.PluginRepository) *PluginService {
 type ListPluginsRequest struct {
 	Category   string
 	Search     string
+	PluginType string
 	IsOfficial *bool
 	Page       int
 	PageSize   int
@@ -46,7 +47,7 @@ func (s *PluginService) ListPlugins(ctx context.Context, req *ListPluginsRequest
 
 	offset := (req.Page - 1) * req.PageSize
 
-	plugins, total, err := s.repo.ListPlugins(ctx, req.Category, req.Search, req.IsOfficial, offset, req.PageSize)
+	plugins, total, err := s.repo.ListPlugins(ctx, req.Category, req.Search, req.PluginType, req.IsOfficial, offset, req.PageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +66,8 @@ func (s *PluginService) GetPluginDetail(ctx context.Context, name string) (*ent.
 }
 
 // GetPluginVersions 获取插件版本列表
-func (s *PluginService) GetPluginVersions(ctx context.Context, name string) ([]*ent.PluginVersion, error) {
-	return s.repo.GetPluginVersions(ctx, name)
+func (s *PluginService) GetPluginVersions(ctx context.Context, name, compatibleWith string) ([]*ent.PluginVersion, error) {
+	return s.repo.GetPluginVersions(ctx, name, compatibleWith)
 }
 
 // GetPluginVersion 获取指定版本

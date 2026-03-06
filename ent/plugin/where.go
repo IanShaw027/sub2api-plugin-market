@@ -631,6 +631,36 @@ func CategoryNotIn(vs ...Category) predicate.Plugin {
 	return predicate.Plugin(sql.FieldNotIn(FieldCategory, vs...))
 }
 
+// PluginTypeEQ applies the EQ predicate on the "plugin_type" field.
+func PluginTypeEQ(v PluginType) predicate.Plugin {
+	return predicate.Plugin(sql.FieldEQ(FieldPluginType, v))
+}
+
+// PluginTypeNEQ applies the NEQ predicate on the "plugin_type" field.
+func PluginTypeNEQ(v PluginType) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNEQ(FieldPluginType, v))
+}
+
+// PluginTypeIn applies the In predicate on the "plugin_type" field.
+func PluginTypeIn(vs ...PluginType) predicate.Plugin {
+	return predicate.Plugin(sql.FieldIn(FieldPluginType, vs...))
+}
+
+// PluginTypeNotIn applies the NotIn predicate on the "plugin_type" field.
+func PluginTypeNotIn(vs ...PluginType) predicate.Plugin {
+	return predicate.Plugin(sql.FieldNotIn(FieldPluginType, vs...))
+}
+
+// PluginTypeIsNil applies the IsNil predicate on the "plugin_type" field.
+func PluginTypeIsNil() predicate.Plugin {
+	return predicate.Plugin(sql.FieldIsNull(FieldPluginType))
+}
+
+// PluginTypeNotNil applies the NotNil predicate on the "plugin_type" field.
+func PluginTypeNotNil() predicate.Plugin {
+	return predicate.Plugin(sql.FieldNotNull(FieldPluginType))
+}
+
 // TagsIsNil applies the IsNil predicate on the "tags" field.
 func TagsIsNil() predicate.Plugin {
 	return predicate.Plugin(sql.FieldIsNull(FieldTags))

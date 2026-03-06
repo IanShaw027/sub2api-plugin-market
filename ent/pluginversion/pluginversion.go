@@ -40,6 +40,8 @@ const (
 	FieldMaxAPIVersion = "max_api_version"
 	// FieldDependencies holds the string denoting the dependencies field in the database.
 	FieldDependencies = "dependencies"
+	// FieldCapabilities holds the string denoting the capabilities field in the database.
+	FieldCapabilities = "capabilities"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldPublishedAt holds the string denoting the published_at field in the database.
@@ -85,6 +87,7 @@ var Columns = []string{
 	FieldPluginAPIVersion,
 	FieldMaxAPIVersion,
 	FieldDependencies,
+	FieldCapabilities,
 	FieldStatus,
 	FieldPublishedAt,
 	FieldCreatedAt,

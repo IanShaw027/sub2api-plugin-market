@@ -8,6 +8,7 @@ import (
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
 	pubsvc "github.com/IanShaw027/sub2api-plugin-market/internal/service"
 	"github.com/google/uuid"
@@ -132,6 +133,23 @@ func (s *SubmissionService) ReviewSubmission(ctx context.Context, id string, act
 		if _, err := pluginUpdate.Save(ctx); err != nil {
 			tx.Rollback()
 			return err
+		}
+
+		// Auto-publish associated PluginVersion if it exists and is in draft
+		version, vErr := tx.Submission.Query().
+			Where(submission.IDEQ(uid)).
+			QueryVersion().
+			Only(ctx)
+		if vErr == nil && version != nil {
+			if version.Status == pluginversion.StatusDraft {
+				if _, err := tx.PluginVersion.UpdateOneID(version.ID).
+					SetStatus(pluginversion.StatusPublished).
+					SetPublishedAt(time.Now()).
+					Save(ctx); err != nil {
+					tx.Rollback()
+					return fmt.Errorf("auto-publish version: %w", err)
+				}
+			}
 		}
 	}
 

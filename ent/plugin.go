@@ -35,6 +35,8 @@ type Plugin struct {
 	License string `json:"license,omitempty"`
 	// 插件分类
 	Category plugin.Category `json:"category,omitempty"`
+	// 插件类型，对应 DispatchRuntime 的三个执行阶段
+	PluginType plugin.PluginType `json:"plugin_type,omitempty"`
 	// 标签列表
 	Tags []string `json:"tags,omitempty"`
 	// 是否官方插件
@@ -129,7 +131,7 @@ func (*Plugin) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case plugin.FieldDownloadCount:
 			values[i] = new(sql.NullInt64)
-		case plugin.FieldName, plugin.FieldDisplayName, plugin.FieldDescription, plugin.FieldAuthor, plugin.FieldRepositoryURL, plugin.FieldHomepageURL, plugin.FieldLicense, plugin.FieldCategory, plugin.FieldSourceType, plugin.FieldGithubRepoURL, plugin.FieldGithubRepoNormalized, plugin.FieldStatus:
+		case plugin.FieldName, plugin.FieldDisplayName, plugin.FieldDescription, plugin.FieldAuthor, plugin.FieldRepositoryURL, plugin.FieldHomepageURL, plugin.FieldLicense, plugin.FieldCategory, plugin.FieldPluginType, plugin.FieldSourceType, plugin.FieldGithubRepoURL, plugin.FieldGithubRepoNormalized, plugin.FieldStatus:
 			values[i] = new(sql.NullString)
 		case plugin.FieldCreatedAt, plugin.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -203,6 +205,12 @@ func (_m *Plugin) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field category", values[i])
 			} else if value.Valid {
 				_m.Category = plugin.Category(value.String)
+			}
+		case plugin.FieldPluginType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field plugin_type", values[i])
+			} else if value.Valid {
+				_m.PluginType = plugin.PluginType(value.String)
 			}
 		case plugin.FieldTags:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -357,6 +365,9 @@ func (_m *Plugin) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("category=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Category))
+	builder.WriteString(", ")
+	builder.WriteString("plugin_type=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PluginType))
 	builder.WriteString(", ")
 	builder.WriteString("tags=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Tags))

@@ -97,6 +97,7 @@ var (
 		{Name: "homepage_url", Type: field.TypeString, Nullable: true},
 		{Name: "license", Type: field.TypeString, Default: "MIT"},
 		{Name: "category", Type: field.TypeEnum, Enums: []string{"proxy", "auth", "analytics", "security", "other"}, Default: "other"},
+		{Name: "plugin_type", Type: field.TypeEnum, Nullable: true, Enums: []string{"interceptor", "transform", "provider"}},
 		{Name: "tags", Type: field.TypeJSON, Nullable: true},
 		{Name: "is_official", Type: field.TypeBool, Default: false},
 		{Name: "is_verified", Type: field.TypeBool, Default: false},
@@ -124,22 +125,27 @@ var (
 			{
 				Name:    "plugin_is_official_status",
 				Unique:  false,
-				Columns: []*schema.Column{PluginsColumns[10], PluginsColumns[18]},
+				Columns: []*schema.Column{PluginsColumns[11], PluginsColumns[19]},
 			},
 			{
 				Name:    "plugin_category_status",
 				Unique:  false,
-				Columns: []*schema.Column{PluginsColumns[8], PluginsColumns[18]},
+				Columns: []*schema.Column{PluginsColumns[8], PluginsColumns[19]},
 			},
 			{
 				Name:    "plugin_is_official_status_download_count",
 				Unique:  false,
-				Columns: []*schema.Column{PluginsColumns[10], PluginsColumns[18], PluginsColumns[12]},
+				Columns: []*schema.Column{PluginsColumns[11], PluginsColumns[19], PluginsColumns[13]},
 			},
 			{
 				Name:    "plugin_github_repo_normalized",
 				Unique:  false,
-				Columns: []*schema.Column{PluginsColumns[16]},
+				Columns: []*schema.Column{PluginsColumns[17]},
+			},
+			{
+				Name:    "plugin_plugin_type_status",
+				Unique:  false,
+				Columns: []*schema.Column{PluginsColumns[9], PluginsColumns[19]},
 			},
 		},
 	}
@@ -157,6 +163,7 @@ var (
 		{Name: "plugin_api_version", Type: field.TypeString},
 		{Name: "max_api_version", Type: field.TypeString, Nullable: true},
 		{Name: "dependencies", Type: field.TypeJSON, Nullable: true},
+		{Name: "capabilities", Type: field.TypeJSON, Nullable: true},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"draft", "published", "yanked"}, Default: "draft"},
 		{Name: "published_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
@@ -172,13 +179,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "plugin_versions_plugins_versions",
-				Columns:    []*schema.Column{PluginVersionsColumns[16]},
+				Columns:    []*schema.Column{PluginVersionsColumns[17]},
 				RefColumns: []*schema.Column{PluginsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "plugin_versions_submissions_version",
-				Columns:    []*schema.Column{PluginVersionsColumns[17]},
+				Columns:    []*schema.Column{PluginVersionsColumns[18]},
 				RefColumns: []*schema.Column{SubmissionsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -187,17 +194,17 @@ var (
 			{
 				Name:    "pluginversion_plugin_id_version",
 				Unique:  true,
-				Columns: []*schema.Column{PluginVersionsColumns[16], PluginVersionsColumns[1]},
+				Columns: []*schema.Column{PluginVersionsColumns[17], PluginVersionsColumns[1]},
 			},
 			{
 				Name:    "pluginversion_plugin_id_status_published_at",
 				Unique:  false,
-				Columns: []*schema.Column{PluginVersionsColumns[16], PluginVersionsColumns[12], PluginVersionsColumns[13]},
+				Columns: []*schema.Column{PluginVersionsColumns[17], PluginVersionsColumns[13], PluginVersionsColumns[14]},
 			},
 			{
 				Name:    "pluginversion_status_published_at",
 				Unique:  false,
-				Columns: []*schema.Column{PluginVersionsColumns[12], PluginVersionsColumns[13]},
+				Columns: []*schema.Column{PluginVersionsColumns[13], PluginVersionsColumns[14]},
 			},
 		},
 	}

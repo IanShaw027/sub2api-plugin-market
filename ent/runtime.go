@@ -97,21 +97,21 @@ func init() {
 	// plugin.DefaultLicense holds the default value on creation for the license field.
 	plugin.DefaultLicense = pluginDescLicense.Default.(string)
 	// pluginDescIsOfficial is the schema descriptor for is_official field.
-	pluginDescIsOfficial := pluginFields[10].Descriptor()
+	pluginDescIsOfficial := pluginFields[11].Descriptor()
 	// plugin.DefaultIsOfficial holds the default value on creation for the is_official field.
 	plugin.DefaultIsOfficial = pluginDescIsOfficial.Default.(bool)
 	// pluginDescIsVerified is the schema descriptor for is_verified field.
-	pluginDescIsVerified := pluginFields[11].Descriptor()
+	pluginDescIsVerified := pluginFields[12].Descriptor()
 	// plugin.DefaultIsVerified holds the default value on creation for the is_verified field.
 	plugin.DefaultIsVerified = pluginDescIsVerified.Default.(bool)
 	// pluginDescDownloadCount is the schema descriptor for download_count field.
-	pluginDescDownloadCount := pluginFields[12].Descriptor()
+	pluginDescDownloadCount := pluginFields[13].Descriptor()
 	// plugin.DefaultDownloadCount holds the default value on creation for the download_count field.
 	plugin.DefaultDownloadCount = pluginDescDownloadCount.Default.(int)
 	// plugin.DownloadCountValidator is a validator for the "download_count" field. It is called by the builders before save.
 	plugin.DownloadCountValidator = pluginDescDownloadCount.Validators[0].(func(int) error)
 	// pluginDescRating is the schema descriptor for rating field.
-	pluginDescRating := pluginFields[13].Descriptor()
+	pluginDescRating := pluginFields[14].Descriptor()
 	// plugin.RatingValidator is a validator for the "rating" field. It is called by the builders before save.
 	plugin.RatingValidator = func() func(float64) error {
 		validators := pluginDescRating.Validators
@@ -129,15 +129,15 @@ func init() {
 		}
 	}()
 	// pluginDescAutoUpgradeEnabled is the schema descriptor for auto_upgrade_enabled field.
-	pluginDescAutoUpgradeEnabled := pluginFields[17].Descriptor()
+	pluginDescAutoUpgradeEnabled := pluginFields[18].Descriptor()
 	// plugin.DefaultAutoUpgradeEnabled holds the default value on creation for the auto_upgrade_enabled field.
 	plugin.DefaultAutoUpgradeEnabled = pluginDescAutoUpgradeEnabled.Default.(bool)
 	// pluginDescCreatedAt is the schema descriptor for created_at field.
-	pluginDescCreatedAt := pluginFields[19].Descriptor()
+	pluginDescCreatedAt := pluginFields[20].Descriptor()
 	// plugin.DefaultCreatedAt holds the default value on creation for the created_at field.
 	plugin.DefaultCreatedAt = pluginDescCreatedAt.Default.(func() time.Time)
 	// pluginDescUpdatedAt is the schema descriptor for updated_at field.
-	pluginDescUpdatedAt := pluginFields[20].Descriptor()
+	pluginDescUpdatedAt := pluginFields[21].Descriptor()
 	// plugin.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	plugin.DefaultUpdatedAt = pluginDescUpdatedAt.Default.(func() time.Time)
 	// plugin.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -173,11 +173,11 @@ func init() {
 	// pluginversion.PluginAPIVersionValidator is a validator for the "plugin_api_version" field. It is called by the builders before save.
 	pluginversion.PluginAPIVersionValidator = pluginversionDescPluginAPIVersion.Validators[0].(func(string) error)
 	// pluginversionDescCreatedAt is the schema descriptor for created_at field.
-	pluginversionDescCreatedAt := pluginversionFields[15].Descriptor()
+	pluginversionDescCreatedAt := pluginversionFields[16].Descriptor()
 	// pluginversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	pluginversion.DefaultCreatedAt = pluginversionDescCreatedAt.Default.(func() time.Time)
 	// pluginversionDescUpdatedAt is the schema descriptor for updated_at field.
-	pluginversionDescUpdatedAt := pluginversionFields[16].Descriptor()
+	pluginversionDescUpdatedAt := pluginversionFields[17].Descriptor()
 	// pluginversion.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	pluginversion.DefaultUpdatedAt = pluginversionDescUpdatedAt.Default.(func() time.Time)
 	// pluginversion.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

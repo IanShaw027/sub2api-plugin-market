@@ -7,6 +7,7 @@ import (
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/enttest"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/plugin"
+	"github.com/IanShaw027/sub2api-plugin-market/ent/pluginversion"
 	"github.com/IanShaw027/sub2api-plugin-market/ent/submission"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -251,6 +252,74 @@ func TestAdminSubmissionService_ReviewSubmission_OfficialPluginByAdmin(t *testin
 	require.NoError(t, err)
 	assert.Equal(t, submission.StatusApproved, updated.Status)
 	assert.Equal(t, "admin-user", updated.ReviewedBy)
+}
+
+func TestAdminSubmissionService_ReviewSubmission_AutoPublishVersion(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:admin_sub_autopublish?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	ctx := context.Background()
+
+	p := createTestPlugin(t, client, "auto-publish-test")
+
+	ver, err := client.PluginVersion.Create().
+		SetPluginID(p.ID).
+		SetVersion("1.0.0").
+		SetWasmURL("/test/1.0.0").
+		SetWasmHash("hash123").
+		SetSignature("sig123").
+		SetFileSize(1024).
+		SetMinAPIVersion("1.0.0").
+		SetPluginAPIVersion("1.0.0").
+		SetStatus("draft").
+		Save(ctx)
+	require.NoError(t, err)
+
+	sub := createTestSubmission(t, client, p.ID)
+	_, err = client.Submission.UpdateOneID(sub.ID).SetVersion(ver).Save(ctx)
+	require.NoError(t, err)
+
+	svc := NewSubmissionService(client)
+	err = svc.ReviewSubmission(ctx, sub.ID.String(), "approve", "looks good", "admin-user", "admin")
+	require.NoError(t, err)
+
+	updatedVer, err := client.PluginVersion.Get(ctx, ver.ID)
+	require.NoError(t, err)
+	assert.Equal(t, pluginversion.StatusPublished, updatedVer.Status)
+	assert.False(t, updatedVer.PublishedAt.IsZero())
+}
+
+func TestAdminSubmissionService_ReviewSubmission_RejectDoesNotPublishVersion(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:admin_sub_reject_nopublish?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	ctx := context.Background()
+
+	p := createTestPlugin(t, client, "reject-nopublish-test")
+
+	ver, err := client.PluginVersion.Create().
+		SetPluginID(p.ID).
+		SetVersion("1.0.0").
+		SetWasmURL("/test/1.0.0").
+		SetWasmHash("hash123").
+		SetSignature("sig123").
+		SetFileSize(1024).
+		SetMinAPIVersion("1.0.0").
+		SetPluginAPIVersion("1.0.0").
+		SetStatus("draft").
+		Save(ctx)
+	require.NoError(t, err)
+
+	sub := createTestSubmission(t, client, p.ID)
+	_, err = client.Submission.UpdateOneID(sub.ID).SetVersion(ver).Save(ctx)
+	require.NoError(t, err)
+
+	svc := NewSubmissionService(client)
+	err = svc.ReviewSubmission(ctx, sub.ID.String(), "reject", "not ready", "admin-user", "admin")
+	require.NoError(t, err)
+
+	updatedVer, err := client.PluginVersion.Get(ctx, ver.ID)
+	require.NoError(t, err)
+	assert.Equal(t, pluginversion.StatusDraft, updatedVer.Status)
+	assert.True(t, updatedVer.PublishedAt.IsZero())
 }
 
 func TestAdminSubmissionService_GetStats(t *testing.T) {

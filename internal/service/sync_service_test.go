@@ -500,6 +500,59 @@ func TestSyncService_SignAndPublish_NoKey(t *testing.T) {
 	assert.Empty(t, got.SignKeyID)
 }
 
+func TestSyncService_DoGitHubRequest_RateLimit(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount <= 2 {
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(1*time.Second).Unix()))
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	svc := &SyncService{httpClient: server.Client()}
+	ctx := context.Background()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/test", nil)
+	require.NoError(t, err)
+
+	resp, err := svc.doGitHubRequest(ctx, req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.GreaterOrEqual(t, callCount, 3, "should have retried at least twice before succeeding")
+}
+
+func TestSyncService_DoGitHubRequest_AllRetriesFail(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("X-RateLimit-Remaining", "0")
+		w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(1*time.Second).Unix()))
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	svc := &SyncService{httpClient: server.Client()}
+	ctx := context.Background()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/test", nil)
+	require.NoError(t, err)
+
+	resp, err := svc.doGitHubRequest(ctx, req)
+	// Last 429 response is returned when all retries are exhausted
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	assert.Equal(t, 4, callCount, "1 initial + 3 retries")
+}
+
 func TestSyncService_CanSign(t *testing.T) {
 	svc := &SyncService{}
 	assert.False(t, svc.CanSign())

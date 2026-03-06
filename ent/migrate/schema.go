@@ -164,6 +164,7 @@ var (
 		{Name: "max_api_version", Type: field.TypeString, Nullable: true},
 		{Name: "dependencies", Type: field.TypeJSON, Nullable: true},
 		{Name: "capabilities", Type: field.TypeJSON, Nullable: true},
+		{Name: "config_schema", Type: field.TypeJSON, Nullable: true},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"draft", "published", "yanked"}, Default: "draft"},
 		{Name: "published_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
@@ -179,13 +180,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "plugin_versions_plugins_versions",
-				Columns:    []*schema.Column{PluginVersionsColumns[17]},
+				Columns:    []*schema.Column{PluginVersionsColumns[18]},
 				RefColumns: []*schema.Column{PluginsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "plugin_versions_submissions_version",
-				Columns:    []*schema.Column{PluginVersionsColumns[18]},
+				Columns:    []*schema.Column{PluginVersionsColumns[19]},
 				RefColumns: []*schema.Column{SubmissionsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -194,17 +195,17 @@ var (
 			{
 				Name:    "pluginversion_plugin_id_version",
 				Unique:  true,
-				Columns: []*schema.Column{PluginVersionsColumns[17], PluginVersionsColumns[1]},
+				Columns: []*schema.Column{PluginVersionsColumns[18], PluginVersionsColumns[1]},
 			},
 			{
 				Name:    "pluginversion_plugin_id_status_published_at",
 				Unique:  false,
-				Columns: []*schema.Column{PluginVersionsColumns[17], PluginVersionsColumns[13], PluginVersionsColumns[14]},
+				Columns: []*schema.Column{PluginVersionsColumns[18], PluginVersionsColumns[14], PluginVersionsColumns[15]},
 			},
 			{
 				Name:    "pluginversion_status_published_at",
 				Unique:  false,
-				Columns: []*schema.Column{PluginVersionsColumns[13], PluginVersionsColumns[14]},
+				Columns: []*schema.Column{PluginVersionsColumns[14], PluginVersionsColumns[15]},
 			},
 		},
 	}

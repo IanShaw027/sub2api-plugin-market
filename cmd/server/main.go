@@ -108,6 +108,8 @@ func main() {
 	authHandler := adminHandler.NewAuthHandler(authService, jwtService)
 	submissionHandler := adminHandler.NewSubmissionHandler(adminSubmissionService)
 	syncHandler := adminHandler.NewSyncHandler(syncService)
+	adminPluginHandler := adminHandler.NewAdminPluginHandler(client)
+	adminVersionHandler := adminHandler.NewAdminVersionHandler(client)
 
 	// 初始化 Gin 路由
 	r := gin.Default()
@@ -121,7 +123,7 @@ func main() {
 	v1.RegisterRoutes(r, pluginHandler, downloadHandler, trustKeyHandler, v1SubmissionHandler, githubWebhookHandler)
 
 	// 注册管理后台路由
-	admin.RegisterRoutes(r, authHandler, submissionHandler, syncHandler, jwtService, authService)
+	admin.RegisterRoutes(r, authHandler, submissionHandler, syncHandler, adminPluginHandler, adminVersionHandler, jwtService, authService)
 
 	// 启动服务器（支持优雅关闭）
 	port := getEnv("PORT", "8081")

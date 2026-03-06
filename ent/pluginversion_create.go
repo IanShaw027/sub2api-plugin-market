@@ -133,6 +133,12 @@ func (_c *PluginVersionCreate) SetCapabilities(v []string) *PluginVersionCreate 
 	return _c
 }
 
+// SetConfigSchema sets the "config_schema" field.
+func (_c *PluginVersionCreate) SetConfigSchema(v map[string]interface{}) *PluginVersionCreate {
+	_c.mutation.SetConfigSchema(v)
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *PluginVersionCreate) SetStatus(v pluginversion.Status) *PluginVersionCreate {
 	_c.mutation.SetStatus(v)
@@ -432,6 +438,10 @@ func (_c *PluginVersionCreate) createSpec() (*PluginVersion, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.Capabilities(); ok {
 		_spec.SetField(pluginversion.FieldCapabilities, field.TypeJSON, value)
 		_node.Capabilities = value
+	}
+	if value, ok := _c.mutation.ConfigSchema(); ok {
+		_spec.SetField(pluginversion.FieldConfigSchema, field.TypeJSON, value)
+		_node.ConfigSchema = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(pluginversion.FieldStatus, field.TypeEnum, value)

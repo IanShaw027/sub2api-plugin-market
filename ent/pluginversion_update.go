@@ -253,6 +253,18 @@ func (_u *PluginVersionUpdate) ClearCapabilities() *PluginVersionUpdate {
 	return _u
 }
 
+// SetConfigSchema sets the "config_schema" field.
+func (_u *PluginVersionUpdate) SetConfigSchema(v map[string]interface{}) *PluginVersionUpdate {
+	_u.mutation.SetConfigSchema(v)
+	return _u
+}
+
+// ClearConfigSchema clears the value of the "config_schema" field.
+func (_u *PluginVersionUpdate) ClearConfigSchema() *PluginVersionUpdate {
+	_u.mutation.ClearConfigSchema()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *PluginVersionUpdate) SetStatus(v pluginversion.Status) *PluginVersionUpdate {
 	_u.mutation.SetStatus(v)
@@ -491,6 +503,12 @@ func (_u *PluginVersionUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if _u.mutation.CapabilitiesCleared() {
 		_spec.ClearField(pluginversion.FieldCapabilities, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ConfigSchema(); ok {
+		_spec.SetField(pluginversion.FieldConfigSchema, field.TypeJSON, value)
+	}
+	if _u.mutation.ConfigSchemaCleared() {
+		_spec.ClearField(pluginversion.FieldConfigSchema, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(pluginversion.FieldStatus, field.TypeEnum, value)
@@ -803,6 +821,18 @@ func (_u *PluginVersionUpdateOne) ClearCapabilities() *PluginVersionUpdateOne {
 	return _u
 }
 
+// SetConfigSchema sets the "config_schema" field.
+func (_u *PluginVersionUpdateOne) SetConfigSchema(v map[string]interface{}) *PluginVersionUpdateOne {
+	_u.mutation.SetConfigSchema(v)
+	return _u
+}
+
+// ClearConfigSchema clears the value of the "config_schema" field.
+func (_u *PluginVersionUpdateOne) ClearConfigSchema() *PluginVersionUpdateOne {
+	_u.mutation.ClearConfigSchema()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *PluginVersionUpdateOne) SetStatus(v pluginversion.Status) *PluginVersionUpdateOne {
 	_u.mutation.SetStatus(v)
@@ -1071,6 +1101,12 @@ func (_u *PluginVersionUpdateOne) sqlSave(ctx context.Context) (_node *PluginVer
 	}
 	if _u.mutation.CapabilitiesCleared() {
 		_spec.ClearField(pluginversion.FieldCapabilities, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ConfigSchema(); ok {
+		_spec.SetField(pluginversion.FieldConfigSchema, field.TypeJSON, value)
+	}
+	if _u.mutation.ConfigSchemaCleared() {
+		_spec.ClearField(pluginversion.FieldConfigSchema, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(pluginversion.FieldStatus, field.TypeEnum, value)

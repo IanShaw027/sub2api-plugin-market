@@ -8,7 +8,7 @@ import (
 )
 
 // RegisterRoutes 注册管理后台路由
-func RegisterRoutes(r *gin.Engine, authHandler *handler.AuthHandler, submissionHandler *handler.SubmissionHandler, syncHandler *handler.SyncHandler, jwtService *auth.JWTService, adminService *auth.AdminService) {
+func RegisterRoutes(r *gin.Engine, authHandler *handler.AuthHandler, submissionHandler *handler.SubmissionHandler, syncHandler *handler.SyncHandler, pluginHandler *handler.AdminPluginHandler, versionHandler *handler.AdminVersionHandler, jwtService *auth.JWTService, adminService *auth.AdminService) {
 	admin := r.Group("/admin")
 	{
 		// 静态文件
@@ -38,6 +38,15 @@ func RegisterRoutes(r *gin.Engine, authHandler *handler.AuthHandler, submissionH
 			authorized.GET("/submissions/stats", submissionHandler.Stats)
 			authorized.GET("/submissions/:id", submissionHandler.Get)
 			authorized.PUT("/submissions/:id/review", submissionHandler.Review)
+
+				// 插件管理
+				authorized.GET("/plugins", pluginHandler.List)
+				authorized.GET("/plugins/:id", pluginHandler.Get)
+				authorized.PUT("/plugins/:id", pluginHandler.Update)
+
+				// 版本管理
+				authorized.GET("/plugins/:id/versions", versionHandler.List)
+				authorized.PUT("/plugins/:id/versions/:vid/status", versionHandler.UpdateStatus)
 
 				// 同步任务
 				authorized.POST("/plugins/:id/sync", syncHandler.CreateManualSync)

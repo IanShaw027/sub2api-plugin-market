@@ -163,6 +163,30 @@ func TestSubmissionService_CreateSubmission_ValidPluginName_MinLength(t *testing
 	assert.Equal(t, "pending", resp.Status)
 }
 
+func TestSubmissionService_CreateSubmission_PendingLimit(t *testing.T) {
+	svc, client := setupSubmissionTest(t)
+	defer client.Close()
+	ctx := context.Background()
+
+	// Create first 3 submissions — all should succeed
+	for i := 0; i < 3; i++ {
+		req := validCreateRequest()
+		req.PluginName = "limit-test-plugin"
+		resp, err := svc.CreateSubmission(ctx, req)
+		require.NoError(t, err, "submission %d should succeed", i+1)
+		require.NotNil(t, resp)
+		assert.Equal(t, "pending", resp.Status)
+	}
+
+	// 4th submission for the same plugin must fail
+	req := validCreateRequest()
+	req.PluginName = "limit-test-plugin"
+	_, err := svc.CreateSubmission(ctx, req)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidSubmissionRequest)
+	assert.Contains(t, err.Error(), "待审核提交")
+}
+
 func TestSubmissionService_CreateSubmission_ExistingPlugin(t *testing.T) {
 	svc, client := setupSubmissionTest(t)
 	defer client.Close()

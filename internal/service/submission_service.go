@@ -124,6 +124,19 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, req *CreateSub
 		}
 	}
 
+	pendingCount, err := s.client.Submission.Query().
+		Where(
+			submission.PluginIDEQ(pluginRecord.ID),
+			submission.StatusEQ(submission.StatusPending),
+		).
+		Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if pendingCount >= 3 {
+		return nil, fmt.Errorf("%w: 该插件已有 %d 个待审核提交，请等待审核完成后再提交", ErrInvalidSubmissionRequest, pendingCount)
+	}
+
 	createSubmissionBuilder := s.client.Submission.Create().
 		SetPluginID(pluginRecord.ID).
 		SetSubmissionType(submissionType).

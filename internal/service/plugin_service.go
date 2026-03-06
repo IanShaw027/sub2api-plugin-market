@@ -2,19 +2,34 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"sync"
+	"time"
 
 	"github.com/IanShaw027/sub2api-plugin-market/ent"
 	"github.com/IanShaw027/sub2api-plugin-market/internal/repository"
 )
 
+type cacheEntry struct {
+	data      *ListPluginsResponse
+	expiresAt time.Time
+}
+
 // PluginService 插件业务逻辑层
 type PluginService struct {
-	repo *repository.PluginRepository
+	repo  *repository.PluginRepository
+	cache sync.Map // key: string (query hash), value: *cacheEntry
+	ttl   time.Duration
 }
 
 // NewPluginService 创建插件服务
 func NewPluginService(repo *repository.PluginRepository) *PluginService {
-	return &PluginService{repo: repo}
+	return &PluginService{
+		repo: repo,
+		ttl:  1 * time.Minute,
+	}
 }
 
 // ListPluginsRequest 插件列表请求
@@ -45,19 +60,52 @@ func (s *PluginService) ListPlugins(ctx context.Context, req *ListPluginsRequest
 		req.PageSize = 20
 	}
 
-	offset := (req.Page - 1) * req.PageSize
+	cacheKey := s.cacheKey(req)
 
+	// Check cache
+	if entry, ok := s.cache.Load(cacheKey); ok {
+		ce := entry.(*cacheEntry)
+		if time.Now().Before(ce.expiresAt) {
+			return ce.data, nil
+		}
+		s.cache.Delete(cacheKey)
+	}
+
+	// Cache miss - query DB
+	offset := (req.Page - 1) * req.PageSize
 	plugins, total, err := s.repo.ListPlugins(ctx, req.Category, req.Search, req.PluginType, req.IsOfficial, offset, req.PageSize)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ListPluginsResponse{
+	resp := &ListPluginsResponse{
 		Plugins:  plugins,
 		Total:    total,
 		Page:     req.Page,
 		PageSize: req.PageSize,
-	}, nil
+	}
+
+	// Store in cache
+	s.cache.Store(cacheKey, &cacheEntry{
+		data:      resp,
+		expiresAt: time.Now().Add(s.ttl),
+	})
+
+	return resp, nil
+}
+
+func (s *PluginService) cacheKey(req *ListPluginsRequest) string {
+	raw, _ := json.Marshal(req)
+	h := sha256.Sum256(raw)
+	return hex.EncodeToString(h[:8]) // 16-char hex key is sufficient
+}
+
+// InvalidateCache clears the plugin list cache (call after plugin create/update/delete)
+func (s *PluginService) InvalidateCache() {
+	s.cache.Range(func(key, _ interface{}) bool {
+		s.cache.Delete(key)
+		return true
+	})
 }
 
 // GetPluginDetail 获取插件详情

@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -517,6 +518,62 @@ func (s *SyncService) getGitHubAPIBase() string {
 	return "https://api.github.com"
 }
 
+func (s *SyncService) doGitHubRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	var resp *http.Response
+	var err error
+	maxRetries := 3
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+			slog.Info("github api retry", "attempt", attempt, "backoff", backoff)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+
+		resp, err = s.getHTTPClient().Do(req)
+		if err != nil {
+			continue
+		}
+
+		if resp.StatusCode == 429 || resp.StatusCode == 403 {
+			if remaining := resp.Header.Get("X-RateLimit-Remaining"); remaining == "0" {
+				resetStr := resp.Header.Get("X-RateLimit-Reset")
+				if resetUnix, parseErr := strconv.ParseInt(resetStr, 10, 64); parseErr == nil {
+					waitUntil := time.Unix(resetUnix, 0)
+					waitDur := time.Until(waitUntil)
+					if waitDur > 0 && waitDur < 5*time.Minute {
+						slog.Warn("github rate limit hit, waiting", "wait", waitDur, "reset", waitUntil)
+						select {
+						case <-ctx.Done():
+							return nil, ctx.Err()
+						case <-time.After(waitDur):
+						}
+					}
+				}
+			}
+			resp.Body.Close()
+			continue
+		}
+
+		return resp, nil
+	}
+
+	if resp != nil {
+		return resp, nil
+	}
+	return nil, fmt.Errorf("github api request failed after %d retries: %w", maxRetries, err)
+}
+
 func (s *SyncService) fetchLatestReleaseTag(ctx context.Context, ownerRepo string) (string, error) {
 	url := fmt.Sprintf("%s/repos/%s/releases/latest", s.getGitHubAPIBase(), ownerRepo)
 	release, err := s.fetchRelease(ctx, url)
@@ -539,12 +596,8 @@ func (s *SyncService) fetchRelease(ctx context.Context, url string) (*githubRele
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
 
-	resp, err := s.getHTTPClient().Do(req)
+	resp, err := s.doGitHubRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -568,11 +621,8 @@ func (s *SyncService) downloadAsset(ctx context.Context, url string) ([]byte, er
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/octet-stream")
-	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
 
-	resp, err := s.getHTTPClient().Do(req)
+	resp, err := s.doGitHubRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}

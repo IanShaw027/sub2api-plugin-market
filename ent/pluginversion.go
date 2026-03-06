@@ -47,6 +47,8 @@ type PluginVersion struct {
 	Dependencies []map[string]string `json:"dependencies,omitempty"`
 	// 所需 Host API 能力列表，如 host_http_fetch, host_kv_read
 	Capabilities []string `json:"capabilities,omitempty"`
+	// 插件配置项 JSON Schema，sub2api 安装时用于生成配置表单
+	ConfigSchema map[string]interface{} `json:"config_schema,omitempty"`
 	// 版本状态
 	Status pluginversion.Status `json:"status,omitempty"`
 	// 发布时间
@@ -100,7 +102,7 @@ func (*PluginVersion) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case pluginversion.FieldDependencies, pluginversion.FieldCapabilities:
+		case pluginversion.FieldDependencies, pluginversion.FieldCapabilities, pluginversion.FieldConfigSchema:
 			values[i] = new([]byte)
 		case pluginversion.FieldFileSize:
 			values[i] = new(sql.NullInt64)
@@ -213,6 +215,14 @@ func (_m *PluginVersion) assignValues(columns []string, values []any) error {
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &_m.Capabilities); err != nil {
 					return fmt.Errorf("unmarshal field capabilities: %w", err)
+				}
+			}
+		case pluginversion.FieldConfigSchema:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field config_schema", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ConfigSchema); err != nil {
+					return fmt.Errorf("unmarshal field config_schema: %w", err)
 				}
 			}
 		case pluginversion.FieldStatus:
@@ -330,6 +340,9 @@ func (_m *PluginVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("capabilities=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Capabilities))
+	builder.WriteString(", ")
+	builder.WriteString("config_schema=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ConfigSchema))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))

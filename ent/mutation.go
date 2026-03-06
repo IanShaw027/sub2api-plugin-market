@@ -3594,6 +3594,7 @@ type PluginVersionMutation struct {
 	appenddependencies []map[string]string
 	capabilities       *[]string
 	appendcapabilities []string
+	config_schema      *map[string]interface{}
 	status             *pluginversion.Status
 	published_at       *time.Time
 	created_at         *time.Time
@@ -4310,6 +4311,55 @@ func (m *PluginVersionMutation) ResetCapabilities() {
 	delete(m.clearedFields, pluginversion.FieldCapabilities)
 }
 
+// SetConfigSchema sets the "config_schema" field.
+func (m *PluginVersionMutation) SetConfigSchema(value map[string]interface{}) {
+	m.config_schema = &value
+}
+
+// ConfigSchema returns the value of the "config_schema" field in the mutation.
+func (m *PluginVersionMutation) ConfigSchema() (r map[string]interface{}, exists bool) {
+	v := m.config_schema
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfigSchema returns the old "config_schema" field's value of the PluginVersion entity.
+// If the PluginVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PluginVersionMutation) OldConfigSchema(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfigSchema is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfigSchema requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfigSchema: %w", err)
+	}
+	return oldValue.ConfigSchema, nil
+}
+
+// ClearConfigSchema clears the value of the "config_schema" field.
+func (m *PluginVersionMutation) ClearConfigSchema() {
+	m.config_schema = nil
+	m.clearedFields[pluginversion.FieldConfigSchema] = struct{}{}
+}
+
+// ConfigSchemaCleared returns if the "config_schema" field was cleared in this mutation.
+func (m *PluginVersionMutation) ConfigSchemaCleared() bool {
+	_, ok := m.clearedFields[pluginversion.FieldConfigSchema]
+	return ok
+}
+
+// ResetConfigSchema resets all changes to the "config_schema" field.
+func (m *PluginVersionMutation) ResetConfigSchema() {
+	m.config_schema = nil
+	delete(m.clearedFields, pluginversion.FieldConfigSchema)
+}
+
 // SetStatus sets the "status" field.
 func (m *PluginVersionMutation) SetStatus(pl pluginversion.Status) {
 	m.status = &pl
@@ -4567,7 +4617,7 @@ func (m *PluginVersionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PluginVersionMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 18)
 	if m.plugin != nil {
 		fields = append(fields, pluginversion.FieldPluginID)
 	}
@@ -4606,6 +4656,9 @@ func (m *PluginVersionMutation) Fields() []string {
 	}
 	if m.capabilities != nil {
 		fields = append(fields, pluginversion.FieldCapabilities)
+	}
+	if m.config_schema != nil {
+		fields = append(fields, pluginversion.FieldConfigSchema)
 	}
 	if m.status != nil {
 		fields = append(fields, pluginversion.FieldStatus)
@@ -4653,6 +4706,8 @@ func (m *PluginVersionMutation) Field(name string) (ent.Value, bool) {
 		return m.Dependencies()
 	case pluginversion.FieldCapabilities:
 		return m.Capabilities()
+	case pluginversion.FieldConfigSchema:
+		return m.ConfigSchema()
 	case pluginversion.FieldStatus:
 		return m.Status()
 	case pluginversion.FieldPublishedAt:
@@ -4696,6 +4751,8 @@ func (m *PluginVersionMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldDependencies(ctx)
 	case pluginversion.FieldCapabilities:
 		return m.OldCapabilities(ctx)
+	case pluginversion.FieldConfigSchema:
+		return m.OldConfigSchema(ctx)
 	case pluginversion.FieldStatus:
 		return m.OldStatus(ctx)
 	case pluginversion.FieldPublishedAt:
@@ -4804,6 +4861,13 @@ func (m *PluginVersionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCapabilities(v)
 		return nil
+	case pluginversion.FieldConfigSchema:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfigSchema(v)
+		return nil
 	case pluginversion.FieldStatus:
 		v, ok := value.(pluginversion.Status)
 		if !ok {
@@ -4895,6 +4959,9 @@ func (m *PluginVersionMutation) ClearedFields() []string {
 	if m.FieldCleared(pluginversion.FieldCapabilities) {
 		fields = append(fields, pluginversion.FieldCapabilities)
 	}
+	if m.FieldCleared(pluginversion.FieldConfigSchema) {
+		fields = append(fields, pluginversion.FieldConfigSchema)
+	}
 	if m.FieldCleared(pluginversion.FieldPublishedAt) {
 		fields = append(fields, pluginversion.FieldPublishedAt)
 	}
@@ -4929,6 +4996,9 @@ func (m *PluginVersionMutation) ClearField(name string) error {
 		return nil
 	case pluginversion.FieldCapabilities:
 		m.ClearCapabilities()
+		return nil
+	case pluginversion.FieldConfigSchema:
+		m.ClearConfigSchema()
 		return nil
 	case pluginversion.FieldPublishedAt:
 		m.ClearPublishedAt()
@@ -4979,6 +5049,9 @@ func (m *PluginVersionMutation) ResetField(name string) error {
 		return nil
 	case pluginversion.FieldCapabilities:
 		m.ResetCapabilities()
+		return nil
+	case pluginversion.FieldConfigSchema:
+		m.ResetConfigSchema()
 		return nil
 	case pluginversion.FieldStatus:
 		m.ResetStatus()

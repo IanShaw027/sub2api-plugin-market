@@ -173,11 +173,11 @@ func init() {
 	// pluginversion.PluginAPIVersionValidator is a validator for the "plugin_api_version" field. It is called by the builders before save.
 	pluginversion.PluginAPIVersionValidator = pluginversionDescPluginAPIVersion.Validators[0].(func(string) error)
 	// pluginversionDescCreatedAt is the schema descriptor for created_at field.
-	pluginversionDescCreatedAt := pluginversionFields[16].Descriptor()
+	pluginversionDescCreatedAt := pluginversionFields[17].Descriptor()
 	// pluginversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	pluginversion.DefaultCreatedAt = pluginversionDescCreatedAt.Default.(func() time.Time)
 	// pluginversionDescUpdatedAt is the schema descriptor for updated_at field.
-	pluginversionDescUpdatedAt := pluginversionFields[17].Descriptor()
+	pluginversionDescUpdatedAt := pluginversionFields[18].Descriptor()
 	// pluginversion.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	pluginversion.DefaultUpdatedAt = pluginversionDescUpdatedAt.Default.(func() time.Time)
 	// pluginversion.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

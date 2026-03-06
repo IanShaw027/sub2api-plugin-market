@@ -10,94 +10,90 @@
 
 | Phase | 任务数 | 已完成 | 进度 | 状态 | 前置 |
 |-------|-------|--------|------|------|------|
-| Phase 0: 安全加固 | 8 | 0 | 0% | 未开始 | 无 |
-| Phase 1: 链路打通 | 16 | 0 | 0% | 未开始 | Phase 0 |
-| Phase 2: Provider 插件化 | 21 | 0 | 0% | 未开始 | Phase 1 |
+| Phase 0: 安全加固 | 9 | 5 | 56% | 进行中 | 无 |
+| Phase 1: 链路打通 | 18 | 4 | 22% | 进行中 | Phase 0 |
+| Phase 2: Provider 插件化 | 24 | 0 | 0% | 未开始 | Phase 1 |
 | Phase 3: Transform/Interceptor | 10 | 0 | 0% | 未开始 | Phase 2.1 |
 | Phase 4: 生态建设 | 17 | 0 | 0% | 未开始 | Phase 3 |
-| **合计** | **72** | **0** | **0%** | | |
+| 运维与上线准备 | 8 | 0 | 0% | 未开始 | 随各 Phase 同步 |
+| **合计** | **86** | **9** | **10%** | | |
 
 ---
 
 ## Phase 0: 安全加固
 
 **目标**: 修复生产安全漏洞 + 数据完整性问题  
-**预计**: 1-2 周 | **仓库**: sub2api-plugin-market | **前置**: 无
+**预计**: 1 周（大部分已完成，仅剩收尾） | **仓库**: sub2api-plugin-market | **前置**: 无
 
 ### P0 安全修复 (生产阻断)
 
-- [ ] **0.1** POST /submissions 增加 IP 级 rate limit
-  - 仓库: `sub2api-plugin-market`
+- [x] **0.1** POST /submissions 增加 IP 级 rate limit
   - 文件: `internal/api/v1/router.go`
-  - 改动: 新增 rate limit middleware（推荐 `golang.org/x/time/rate`），限制 POST /submissions 每 IP 10 次/分
-  - 验证: 同一 IP 连续 15 次请求 → 第 11 次起返回 429
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已实现 `middleware.NewIPRateLimiter`
+  - 待验证: 确认限流阈值（当前值）是否合理
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **0.2** Webhook 签名强制校验
-  - 仓库: `sub2api-plugin-market`
+- [x] **0.2** Webhook 签名强制校验
   - 文件: `internal/api/v1/handler/github_webhook_handler.go`
-  - 改动: `if h.secret == ""` 时返回 500 + 日志告警，拒绝处理
-  - 验证: 不配置 GITHUB_WEBHOOK_SECRET → webhook 返回 500
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ⚠️ 仅在 `gin.ReleaseMode` 下拒绝空 secret
+  - 遗留: 评估是否需要在所有模式下强制（当前行为对开发便利，生产安全）
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **0.3** 审核操作事务化
-  - 仓库: `sub2api-plugin-market`
+- [x] **0.3** 审核操作事务化
   - 文件: `internal/admin/service/submission_service.go`
-  - 改动: `ReviewSubmission` 用 `client.Tx()` 包裹 Submission 更新 + Plugin 更新，失败整体回滚
-  - 验证: 模拟 Plugin 更新失败 → Submission 状态不变（仍为 pending）
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已用 `client.Tx()` 包裹
+  - 完成: ☑  日期: 已完成  负责人: ____
 
 ### P1 数据完整性
 
-- [ ] **0.4** 插件名正则校验
-  - 仓库: `sub2api-plugin-market`
+- [ ] **0.4** 插件名正则校验（Schema 层加固）
   - 文件: `ent/schema/plugin.go`
-  - 改动: `field.String("name").Match(regexp.MustCompile("^[a-z0-9][a-z0-9-]{0,62}$"))`
-  - 验证: `../hack` → 400；`My_Plugin` → 400；`my-plugin` → 通过
+  - 现状: 正则校验在 `internal/service/submission_service.go` 的 service 层已有 `^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$`
+  - 改动: 在 schema 层增加 `Match()` 作为双保险（防止 service 层被绕过）
+  - 验证: 直接用 Ent client 创建 `../hack` → schema 层拦截
   - 依赖: 无
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **0.5** Official 插件审核角色限制
-  - 仓库: `sub2api-plugin-market`
-  - 文件: `internal/admin/handler/submission_handler.go`
-  - 改动: 审核时查询关联 Plugin，若 `is_official=true` 则要求 `admin_user.role` 为 `super_admin` 或 `admin`
-  - 验证: reviewer 审核 official 插件 → 403；admin 审核 → 通过
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+- [x] **0.5** Official 插件审核角色限制
+  - 文件: `internal/admin/service/submission_service.go`
+  - 现状: ✅ 已有 `if pluginRecord.IsOfficial && reviewerRole == "reviewer" { return ErrForbiddenReview }`
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **0.6** Sync 并发锁
-  - 仓库: `sub2api-plugin-market`
+- [ ] **0.6** Sync 并发锁（升级为分布式锁）
   - 文件: `internal/service/sync_service.go`
-  - 改动: `runGitHubSync` 入口加 Redis `SETNX` 或 PostgreSQL advisory lock，key=`sync:{plugin_id}:{ref}`，TTL=10min
-  - 验证: 手动 Sync + Webhook Sync 同时触发同一 (plugin_id, ref) → 只有一个执行，另一个返回 "sync in progress"
+  - 现状: ⚠️ 已有 `sync.Map` 进程内锁，但多实例部署时无效
+  - 改动: 替换为 Redis `SETNX` 或 PostgreSQL advisory lock（如单实例部署可保留现状并标注）
+  - 验证: 两个 market 实例同时触发 Sync → 只有一个执行
   - 依赖: 无
   - 完成: ☐  日期: ____  负责人: ____
 
 - [ ] **0.7** Sync 操作顺序 + 孤儿清理
-  - 仓库: `sub2api-plugin-market`
   - 文件: `internal/service/sync_service.go`
-  - 改动: 调整为 ①检查版本是否存在 → ②上传 WASM → ③创建 PluginVersion；③失败时调用 `storage.Delete(wasmKey)` 清理
-  - 验证: 模拟创建版本失败（如唯一约束冲突）→ 存储中无孤儿 WASM 文件
+  - 现状: 当前顺序为 下载 WASM → 上传存储 → 创建版本（顺序正确），但创建版本失败时未清理已上传 WASM
+  - 改动: 创建版本失败时调用 `storage.Delete(wasmKey)` 清理
+  - 验证: 模拟创建版本失败 → 存储中无孤儿 WASM
   - 依赖: 无
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **0.8** 审核接口乐观锁
-  - 仓库: `sub2api-plugin-market`
+- [x] **0.8** 审核接口乐观锁
   - 文件: `internal/admin/service/submission_service.go`
-  - 改动: `client.Submission.UpdateOneID(id).Where(submission.StatusEQ(submission.StatusPending)).Set...`，受影响行数为 0 则返回 409 Conflict
-  - 验证: 两管理员同时审核同一 Submission → 后到者返回 409
-  - 依赖: 0.3（事务化后在此基础上加乐观锁）
+  - 现状: ✅ 已有 `Where(submission.StatusEQ(submission.StatusPending))` 条件更新
+  - 完成: ☑  日期: 已完成  负责人: ____
+
+- [ ] **0.9** 同一插件 pending Submission 数量限制
+  - 文件: `internal/service/submission_service.go`
+  - 现状: ❌ 无此逻辑
+  - 改动: `CreateSubmission` 前查询同一插件是否有 pending 提交
+  - 验证: 同一插件连续提交 2 次 → 第 2 次返回 409
+  - 依赖: 无
   - 完成: ☐  日期: ____  负责人: ____
 
 ### Phase 0 验收门禁
 
-- [ ] 全部 8 项 checkbox 已勾
+- [ ] 全部 9 项中：5 项已完成、4 项待完成（0.4/0.6/0.7/0.9）
 - [ ] `make test` 通过（含新增测试用例）
 - [ ] `make lint` 通过
-- [ ] 安全测试覆盖: rate limit / webhook 强制 / 路径遍历 / 并发锁 / 乐观锁
+- [ ] 安全测试覆盖: rate limit / webhook 强制 / 路径遍历 / 并发锁 / 乐观锁 / pending 数量限制
 - [ ] **Phase 0 完成签字**: 日期: ____  签字: ____
 
 ---
@@ -109,28 +105,25 @@
 
 ### 1.1 Schema 扩展 (market)
 
-- [ ] **1.1** Plugin 加 plugin_type
+- [x] **1.1** Plugin 加 plugin_type
   - 文件: `ent/schema/plugin.go`
-  - 改动: `field.Enum("plugin_type").Values("interceptor","transform","provider").Optional().Comment("插件类型")`
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已有 `field.Enum("plugin_type").Values("interceptor","transform","provider").Optional()`
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **1.2** PluginVersion 加 capabilities + config_schema
+- [x] **1.2** PluginVersion 加 capabilities + config_schema
   - 文件: `ent/schema/plugin_version.go`
-  - 改动: `field.JSON("capabilities", []string{}).Optional()` + `field.JSON("config_schema", map[string]any{}).Optional()`
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已有 `field.JSON("capabilities", []string{})` + `field.JSON("config_schema", map[string]interface{}{})`
+  - 完成: ☑  日期: 已完成  负责人: ____
 
-- [ ] **1.3** Submission 加 plugin_version 关联
+- [x] **1.3** Submission 加 plugin_version 关联
   - 文件: `ent/schema/submission.go`
-  - 改动: `edge.To("plugin_version", PluginVersion.Type).Unique().Optional()`
-  - 依赖: 无
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已有 `edge.To("version", PluginVersion.Type).Unique()`
+  - 完成: ☑  日期: 已完成  负责人: ____
 
 - [ ] **1.4** make generate + 编译验证
   - 命令: `make generate && go mod tidy && make build && make test`
   - 验证: 编译通过，现有测试不受影响
-  - 依赖: 1.1 + 1.2 + 1.3
+  - 依赖: 1.1 + 1.2 + 1.3（均已完成）
   - 完成: ☐  日期: ____  负责人: ____
 
 ### 1.2 WASM 上传 + 签名 + 发布 (market)
@@ -151,12 +144,10 @@
   - 依赖: 1.5
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **1.7** 审核 service 联动发布版本
+- [x] **1.7** 审核 service 联动发布版本
   - 文件: `internal/admin/service/submission_service.go`
-  - 改动: approve 时在事务内：①更新 Submission → approved ②获取关联的 PluginVersion → SetStatus(published) + SetPublishedAt(time.Now()) ③更新 Plugin 元数据
-  - 验证: 审核通过 → PluginVersion status=published + published_at 非空
-  - 依赖: 1.6 + 0.3（事务化已完成）
-  - 完成: ☐  日期: ____  负责人: ____
+  - 现状: ✅ 已实现 — approve 时在事务内将关联的 draft PluginVersion 更新为 published + 设置 published_at
+  - 完成: ☑  日期: 已完成  负责人: ____
 
 **路径 B: GitHub Sync 自动发布**
 
@@ -176,23 +167,26 @@
 
 ### 1.3 API 增强 (market)
 
-- [ ] **1.10** GET /plugins 支持 ?type= 筛选
+- [ ] **1.10** GET /plugins 支持 ?type= 筛选（handler + repository 实现）
   - 文件: `internal/repository/plugin_repository.go` + `internal/api/v1/handler/plugin_handler.go`
-  - 改动: 接收 `type` query 参数，传到 repository 做 `plugin.PluginTypeEQ(...)` 过滤
+  - 现状: ⚠️ OpenAPI 已定义 `type` query param（enum: interceptor/transform/provider），但需确认 handler 和 repository 是否实际消费该参数
+  - 改动: handler 接收 `type` 参数 → repository 做 `plugin.PluginTypeEQ(...)` 过滤
   - 验证: `GET /plugins?type=provider` → 仅返回 plugin_type=provider 的插件
   - 依赖: 1.4
   - 完成: ☐  日期: ____  负责人: ____
 
-- [ ] **1.11** GET /versions 支持 ?compatible_with= 过滤
+- [ ] **1.11** GET /versions 支持 ?compatible_with= 过滤（handler + repository 实现）
   - 文件: `internal/repository/plugin_repository.go` + `internal/api/v1/handler/plugin_handler.go`
-  - 改动: 接收 `compatible_with` 参数，做 `min_api_version <= compatible_with` 和 `max_api_version >= compatible_with`（semver 比较）
+  - 现状: ⚠️ OpenAPI 已定义 `compatible_with` query param，但需确认 handler 和 repository 是否实际消费
+  - 改动: handler 接收参数 → repository 做 semver 范围比较
   - 验证: `?compatible_with=1.2.0` → 仅返回 min≤1.2.0 且 max≥1.2.0 的版本
   - 依赖: 1.4
   - 完成: ☐  日期: ____  负责人: ____
 
 - [ ] **1.12** OpenAPI spec 同步更新
   - 文件: `openapi/plugin-market-v1.yaml`
-  - 改动: 新增 plugin_type 枚举、capabilities 数组、config_schema 对象、?type= 和 ?compatible_with= 参数、multipart submission schema
+  - 现状: ⚠️ 已有 `type` 和 `compatible_with` 参数定义；缺少 `capabilities` 数组 schema 和 multipart submission schema
+  - 改动: 新增 capabilities 数组 schema、config_schema 对象、multipart submission request body schema
   - 验证: `make check-contract` 通过
   - 依赖: 1.10 + 1.11
   - 完成: ☐  日期: ____  负责人: ____
@@ -228,6 +222,22 @@
   - 改动: 将 4 个内置 Service（GatewayService, OpenAIGatewayService, GeminiCompatService, AntigravityGatewayService）包装为 ProviderPlugin 接口的 adapter，注册为 priority=最低 的默认 Provider。当无外部 WASM Provider 时自动使用
   - 验证: 未安装任何外部插件 → 请求正常走内置 Service（行为 100% 不变）
   - 依赖: 1.14
+  - 完成: ☐  日期: ____  负责人: ____
+
+### 1.5 部署准备 (market)
+
+- [ ] **1.17** 数据库迁移脚本
+  - 文件: `ent/migrate/` 生成文件 + 生产迁移 SQL
+  - 改动: Phase 0 的 name 正则 + Phase 1 的 plugin_type/capabilities/config_schema/submission→version edge 需生产环境 ALTER TABLE。导出迁移 SQL 并在 staging 先行验证
+  - 验证: staging 环境执行迁移 → 现有数据不丢失 → 应用启动正常
+  - 依赖: 1.4
+  - 完成: ☐  日期: ____  负责人: ____
+
+- [ ] **1.18** 管理后台 UI 适配
+  - 文件: `frontend/` 或 `web/admin/`
+  - 改动: 提交列表/详情页展示 plugin_type、capabilities；审核页展示关联的 PluginVersion 信息；筛选器增加按 type 过滤
+  - 验证: 管理员可在后台看到插件类型并按类型筛选
+  - 依赖: 1.4
   - 完成: ☐  日期: ____  负责人: ____
 
 ### Phase 1 端到端验收门禁
@@ -364,7 +374,7 @@
 
 - [ ] **2.19** gemini-provider 开发
   - 核心切割: Token/HandleTempUnschedulable 留核心
-  - 前置: claude-gemini-transform (Phase 3 的 3.8) 可提前到此开发
+  - 前置: claude-gemini-transform (Phase 3 的 3.5) 可提前到此阶段并行开发
   - 完成: ☐  日期: ____  负责人: ____
 
 - [ ] **2.20** gemini-provider 对比测试
@@ -373,6 +383,32 @@
 
 - [ ] **2.21** gemini-provider 灰度上线
   - 同 2.12 步骤
+  - 完成: ☐  日期: ____  负责人: ____
+
+### 2.3 上线基础设施
+
+- [ ] **2.22** 对比测试框架
+  - 仓库: `sub2api`
+  - 文件: `backend/internal/pluginruntime/consistency_test.go`（新文件）
+  - 改动: 实现 `ConsistencyTest` 结构体：同一请求同时走内置和插件，自动对比 StatusCode/Body/Usage/Model/Failover。支持流式逐行对比
+  - 验证: 人为制造 Usage 偏差 → 框架报告差异
+  - 依赖: 2.6
+  - 完成: ☐  日期: ____  负责人: ____
+
+- [ ] **2.23** Shadow/Canary 流量切分机制
+  - 仓库: `sub2api`
+  - 文件: `backend/internal/handler/gateway_handler.go` + `backend/internal/pluginruntime/traffic_split.go`（新文件）
+  - 改动: 实现三种模式：①Shadow（双写，仅内置响应）②Canary（按百分比路由）③Full（100% 插件）。通过环境变量或配置文件控制每个 Provider 的模式和百分比
+  - 验证: 设 claude-provider=canary:10% → 约 10% 请求走插件
+  - 依赖: 1.14
+  - 完成: ☐  日期: ____  负责人: ____
+
+- [ ] **2.24** WASM body 大小限制
+  - 仓库: `sub2api`
+  - 文件: `backend/internal/pluginruntime/dispatch_runtime.go`
+  - 改动: 在将 request body 传入 WASM 前检查大小。Provider: 超过 limit 则 fallback 内置；Transform: 超过 limit 则跳过该 Transform 并记日志。默认 2MB，可配置
+  - 验证: 发送 3MB body + Transform 插件 → Transform 被跳过，请求正常处理
+  - 依赖: 2.6
   - 完成: ☐  日期: ____  负责人: ____
 
 ### Phase 2 验收门禁
@@ -579,17 +615,93 @@
 
 ---
 
+## 运维与上线准备
+
+> 以下是跨 Phase 的生产上线必要条件，做完开发任务但不做这些 = 无法上线。
+
+### A. 环境与配置
+
+- [ ] **OPS.1** 生产环境变量清单
+  - 交付: 一份文档或 `.env.example`，列出所有新增/变更的环境变量
+  - 涵盖: `GITHUB_WEBHOOK_SECRET`(强制)、Rate Limit 配置、Redis 连接（如用 SETNX）、WASM body 大小限制、Shadow/Canary 配置、Config Host API 配置目录
+  - 验证: 新部署按文档配置后一次启动成功
+  - 完成: ☐  日期: ____  负责人: ____
+
+- [ ] **OPS.2** 数据库迁移预演
+  - 交付: 在 staging 环境完整执行一次 DB 迁移（Phase 0 的 name 校验 + Phase 1 的 schema 扩展），记录耗时和影响
+  - 验证: staging 迁移后 → 旧数据正常读取 → 新字段 nullable → 应用启动正常
+  - 完成: ☐  日期: ____  负责人: ____
+
+### B. 部署流程
+
+- [ ] **OPS.3** 部署顺序与回滚预案
+  - 交付: 文档明确每个 Phase 的部署顺序：
+    - Phase 0/1: **先部署 market → 再部署 sub2api**（market 提供新 API 后 sub2api 才能调用）
+    - Phase 2/3: **先部署 sub2api**（新运行时能力） → 再安装插件
+  - 回滚: 每个 Phase 部署前备份 DB → 出问题回滚二进制 + DB
+  - 完成: ☐  日期: ____  负责人: ____
+
+- [ ] **OPS.4** CI/CD Pipeline 更新
+  - 涵盖:
+    - market 仓库: `make check-contract` 加入 CI（已有） + 新增 rate limit / 乐观锁 / 并发锁测试
+    - sub2api 仓库: 新增 WASM 插件编译步骤（TinyGo） + 签名步骤 + 对比测试步骤
+    - 签名密钥: CI 中的 Ed25519 私钥安全存储（GitHub Secrets / Vault）
+  - 验证: PR 合并后自动编译 + 签名 + 测试
+  - 完成: ☐  日期: ____  负责人: ____
+
+### C. 监控告警
+
+- [ ] **OPS.5** 监控大盘 + 告警规则
+  - 涵盖:
+    - **market**: Submission 提交量/审核延迟/SyncJob 成功率/下载 QPS
+    - **sub2api 插件**: Dispatch 延迟/插件错误率/熔断状态/WASM 内存使用
+    - **灰度期**: 内置 vs 插件 Usage 偏差率/延迟对比
+  - 告警:
+    - 插件错误率 >1% → P1 告警
+    - Usage 偏差 >0.5% → P1 告警（灰度期）
+    - WASM OOM → P0 告警
+    - SyncJob 连续失败 3 次 → P2 告警
+  - 完成: ☐  日期: ____  负责人: ____
+
+- [ ] **OPS.6** Health Check 端点增强
+  - 文件: market `cmd/server/main.go` + sub2api health endpoint
+  - 改动: health check 增加 DispatchRuntime 状态（已注册插件数/熔断插件数）+ market 增加 DB/Storage/Redis 连通性检查
+  - 完成: ☐  日期: ____  负责人: ____
+
+### D. 风险缓解
+
+- [ ] **OPS.7** GitHub API 限流保护
+  - 文件: `internal/service/sync_service.go`
+  - 改动: GitHub API 调用增加 retry + exponential backoff（初始 1s，最大 60s，最多 3 次）；批量 Sync 时限制并发数（如 3 个并发）
+  - 验证: 模拟 GitHub 429 → 重试后成功
+  - 完成: ☐  日期: ____  负责人: ____
+
+- [ ] **OPS.8** Semver 兼容性匹配规则文档
+  - 交付: 文档明确 `?compatible_with=` 的匹配算法：`min_api_version <= X` 且 `(max_api_version == "" || max_api_version >= X)`，使用 Go `semver` 包的比较语义
+  - 验证: 边界用例测试（如 `1.0.0-beta` vs `1.0.0`）
+  - 完成: ☐  日期: ____  负责人: ____
+
+### 运维准备验收
+
+- [ ] 全部 OPS.1-OPS.8 已完成
+- [ ] staging 环境完整走通一次部署流程
+- [ ] 监控大盘可用，告警规则已配置并测试
+- [ ] **运维准备完成签字**: 日期: ____  签字: ____
+
+---
+
 ## 关键里程碑
 
 | # | 里程碑 | 标志 | 目标周 | 实际日期 | 签字 |
 |---|--------|------|-------|---------|------|
-| M0 | 安全就绪 | Phase 0 全部通过 | Week 2 | ____ | ____ |
-| M1 | 第一个插件全链路 | Echo Provider E2E 跑通 | Week 6 | ____ | ____ |
-| M2 | 流式编排就绪 | Host 流式 HTTP + OnSSELine 可用 | Week 9 | ____ | ____ |
-| M3 | 首个 Provider 灰度 | claude-provider 100% | Week 11 | ____ | ____ |
+| M0 | 安全就绪 | Phase 0 全部通过 + OPS.1-2 完成 | Week 2 | ____ | ____ |
+| M1 | 第一个插件全链路 | Echo Provider E2E 跑通 + staging 部署验证 | Week 6 | ____ | ____ |
+| M2 | 流式编排就绪 | Host 流式 HTTP + OnSSELine + 对比测试框架 | Week 9 | ____ | ____ |
+| M3 | 首个 Provider 灰度 | claude-provider 100% + 监控大盘就绪 | Week 11 | ____ | ____ |
 | M4 | 全部 Provider 就绪 | 4 个 Provider 100% | Week 13 | ____ | ____ |
 | M5 | 12 个插件全部可用 | Phase 3 完成 | Week 17 | ____ | ____ |
 | M6 | 生态就绪 | SDK + CLI + 文档 | Week 18+ | ____ | ____ |
+| M7 | 运维就绪 | OPS.1-8 全部完成 | M3 之前 | ____ | ____ |
 
 ---
 
@@ -601,9 +713,84 @@
 
 ---
 
+## V4 源码交叉校验报告
+
+> 以下是对照 `sub2api` (`backend/internal/`) 和 `sub2api-plugin-market` 实际源码后发现的关键事实，部分直接影响清单任务的可行性。
+
+### 发现 1: Interceptor next 链为 stub（影响 1.15）
+
+`dispatch_runtime.go` 中 Interceptor 的 `next` 参数永远返回 `(nil, nil)`：
+
+```go
+next := func(context.Context, *pluginapi.GatewayRequest) (*pluginapi.GatewayResponse, error) {
+    return nil, nil
+}
+```
+
+这意味着 Interceptor 无法链式调用下游（Transform → Provider）。任务 1.15（next 链实现）是**必须做的**，否则 Interceptor 无法拦截并修改下游响应。
+
+### 发现 2: phase.go 定义 7 阶段 vs dispatch_runtime.go 仅实现 4 阶段
+
+- `phase.go` 定义: `pre_auth`, `post_auth`, `intercept`, `transform`, `proxy`, `post_proxy`, `log`
+- `dispatch_runtime.go` 实际执行: interceptor → transform(request) → provider → transform(response)
+
+**差距**: `pre_auth`/`post_auth`/`post_proxy`/`log` 阶段在 dispatch 中未被使用。需明确：是移除 phase.go 中多余的阶段定义，还是在 dispatch 中实现完整 7 阶段。
+
+### 发现 3: gateway_handler 完全未调用 Dispatch()
+
+`gateway_handler.go` 通过 `if/else` 判断 `account.Platform` 直接调用各 Gateway Service 的 `ForwardWithInput`，完全绕过了 `DispatchRuntime.Dispatch()`。Dispatch 仅在测试和 examples 中使用。
+
+**意义**: 任务 1.14（gateway_handler 接入 DispatchRuntime）是最关键的架构变更——需要将现有的 platform switch 逻辑迁移为通过 Dispatch() 调度。
+
+### 发现 4: OpenAI 路由隐藏在 Claude 路径中
+
+`gateway_handler.go` 的 else 分支（非 Gemini、非 Antigravity）统一走 `gatewayService.ForwardWithInput`，这同时处理 Claude 和 OpenAI。但 `openai_gateway_service.go` 存在且有独立的 `Forward` 方法。
+
+**意义**: 插件化时需要明确 OpenAI 是独立 Provider 还是共享 Claude Provider 路径。清单任务 2.16-2.18（openai-provider）可能需要额外的路由拆分工作。
+
+### 发现 5: Usage 记录在 handler 层的 goroutine 中
+
+`gateway_handler.go` 中 `RecordUsage` 在 `go func()` 中异步执行。ProviderPlugin 的结果需要返回足够的 Usage 信息（token count 等）才能让核心记录用量。
+
+**意义**: 任务 2.8（ProviderResultMetadata）需包含 `InputTokens`、`OutputTokens`、`Model` 等字段，使 handler 能在 `RecordUsage` 中使用。
+
+### 发现 6: StreamWriter 没有 Flush/SetStatus/Done
+
+当前 `StreamWriter` 接口仅有 `State()`/`SetHeader()`/`WriteChunk()`/`Close()`。`GinStreamWriter` 内部调用 HTTP Flusher，但接口层不暴露。
+
+**意义**: 任务 2.3（扩展 StreamWriter）是 Provider 流式输出的前置条件。
+
+### 发现 7: Host HTTP 无流式能力
+
+`host_api_http.go` 使用 `io.ReadAll(httpResp.Body)` 一次性读取响应体。无 `DoStream` 方法。
+
+**意义**: 任务 2.5（StreamDelegate）和 2.6（Host-managed OnSSELine）是解决此限制的核心方案。不做这两项，Provider 插件无法处理 SSE 流式响应。
+
+### 发现 8: Market Sync 不下载 manifest 也不验签
+
+`sync_service.go` 仅下载 `.wasm` 文件，自行计算 SHA256，不下载 `manifest.json` 或 `signature.sig`，不验证发布者签名。
+
+**意义**: 任务 1.8/1.9 需从头实现 manifest 解析和签名验证流程，工作量比"修复"更大。
+
+### 发现 9: Market 已有 pluginmarket 子系统（sub2api 侧）
+
+`sub2api` 中已有 `backend/internal/pluginmarket/` 目录，包含 `control_plane_service.go`、`lifecycle_service.go`、`dependency_resolver.go`、`registry.go` 等。
+
+**意义**: Phase 1 的 1.14 任务（DispatchRuntime 接入）应优先利用已有的 `pluginmarket` 子系统中的生命周期管理能力，而非重新实现。
+
+### 发现 10: pluginsign 已有完整验签能力
+
+`sub2api` 中 `backend/internal/pluginsign/` 已实现 `VerifySignature` 和 `VerifyInstall`，含信任链校验。
+
+**意义**: 任务 1.9 的 market 端验签可复用 `pluginsign` 的逻辑（提取为共享包或在 market 端引用），避免重复实现。
+
+---
+
 ## 变更记录
 
 | 日期 | 变更内容 | 原因 |
 |------|---------|------|
 | 2026-03-06 | V1 创建 | 基于 06 方案生成 |
-| 2026-03-06 | V2 完整性修复 | 补充缺失任务(1.16/2.8/2.9/3.1)、修正计数(72项)、增加每项依赖关系、Provider 灰度子步骤、回归测试、验收签字 |
+| 2026-03-06 | V2 完整性修复 | 补充缺失任务(1.16/2.8/2.9/3.1)、增加依赖关系、Provider 灰度子步骤、回归测试、验收签字 |
+| 2026-03-06 | V3 上线完整性修复 | 新增 0.9 pending 限制、1.17 DB 迁移、1.18 管理后台 UI、2.22 对比测试框架、2.23 Shadow/Canary 机制、2.24 WASM body 限制；新增「运维与上线准备」章节(OPS.1-8)；里程碑增加 M7 运维就绪。总计 86 项 |
+| 2026-03-06 | V4 源码交叉校验 | 对照 sub2api + market 双仓库源码逐项校验：标记已完成 9 项；修正 0.2/0.6 为"部分完成"；新增 10 条源码级发现（见下方交叉校验报告） |

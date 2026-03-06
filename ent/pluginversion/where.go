@@ -831,6 +831,16 @@ func CapabilitiesNotNil() predicate.PluginVersion {
 	return predicate.PluginVersion(sql.FieldNotNull(FieldCapabilities))
 }
 
+// ConfigSchemaIsNil applies the IsNil predicate on the "config_schema" field.
+func ConfigSchemaIsNil() predicate.PluginVersion {
+	return predicate.PluginVersion(sql.FieldIsNull(FieldConfigSchema))
+}
+
+// ConfigSchemaNotNil applies the NotNil predicate on the "config_schema" field.
+func ConfigSchemaNotNil() predicate.PluginVersion {
+	return predicate.PluginVersion(sql.FieldNotNull(FieldConfigSchema))
+}
+
 // StatusEQ applies the EQ predicate on the "status" field.
 func StatusEQ(v Status) predicate.PluginVersion {
 	return predicate.PluginVersion(sql.FieldEQ(FieldStatus, v))

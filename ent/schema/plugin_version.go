@@ -58,6 +58,9 @@ func (PluginVersion) Fields() []ent.Field {
 		field.JSON("capabilities", []string{}).
 			Optional().
 			Comment("所需 Host API 能力列表，如 host_http_fetch, host_kv_read"),
+		field.JSON("config_schema", map[string]interface{}{}).
+			Optional().
+			Comment("插件配置项 JSON Schema，sub2api 安装时用于生成配置表单"),
 		field.Enum("status").
 			Values("draft", "published", "yanked").
 			Default("draft").
